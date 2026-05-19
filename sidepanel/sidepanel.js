@@ -809,7 +809,7 @@ const AUTO_SKIP_FAILURES_PROMPT_DISMISSED_STORAGE_KEY = 'multipage-auto-skip-fai
 const AUTO_RUN_FALLBACK_RISK_PROMPT_DISMISSED_STORAGE_KEY = 'multipage-auto-run-fallback-risk-prompt-dismissed';
 const CPA_PHONE_SIGNUP_PROMPT_DISMISSED_STORAGE_KEY = 'multipage-cpa-phone-signup-prompt-dismissed';
 const CLOUDFLARE_TEMP_EMAIL_REGISTRATION_LOOKUP_PROMPT_DISMISSED_STORAGE_KEY = 'multipage-cloudflare-temp-email-registration-lookup-prompt-dismissed';
-const CPA_PHONE_SIGNUP_WARNING_MESSAGE = 'CPA 未适配手机号注册模式，认证成功后无法使用。请使用 SUB2API，或者认证成功后重新登录一遍进行解决。';
+const CPA_PHONE_SIGNUP_WARNING_MESSAGE = '请确保打开手机接码设置中的“绑定后重登”开关，不然可能无法使用（有些版本无需开启）';
 const PHONE_VERIFICATION_SECTION_EXPANDED_STORAGE_KEY = 'multipage-phone-verification-section-expanded';
 let phoneVerificationSectionExpanded = false;
 

@@ -248,7 +248,7 @@ const SIGNUP_METHOD_PHONE = 'phone';
 const SIGNUP_METHOD_EMAIL = 'email';
 const DEFAULT_SIGNUP_METHOD = SIGNUP_METHOD_EMAIL;
 const CPA_PHONE_SIGNUP_PROMPT_DISMISSED_STORAGE_KEY = 'multipage-cpa-phone-signup-prompt-dismissed';
-const CPA_PHONE_SIGNUP_WARNING_MESSAGE = 'CPA 未适配手机号注册模式，认证成功后无法使用。请使用 SUB2API，或者认证成功后重新登录一遍进行解决。';
+const CPA_PHONE_SIGNUP_WARNING_MESSAGE = '请确保打开手机接码设置中的“绑定后重登”开关，不然可能无法使用（有些版本无需开启）';
 const storage = new Map();
 const localStorage = {
   getItem(key) {
@@ -299,7 +299,7 @@ return {
   const firstResult = await api.confirmCpaPhoneSignupIfNeeded({ signupMethod: 'phone', panelMode: 'cpa' });
   assert.equal(firstResult, true);
   assert.equal(api.getCapturedOptions().title, 'CPA 手机号注册提醒');
-  assert.equal(api.getCapturedOptions().message, 'CPA 未适配手机号注册模式，认证成功后无法使用。请使用 SUB2API，或者认证成功后重新登录一遍进行解决。');
+  assert.equal(api.getCapturedOptions().message, '请确保打开手机接码设置中的“绑定后重登”开关，不然可能无法使用（有些版本无需开启）');
   assert.equal(api.getCapturedOptions().confirmLabel, '继续');
   assert.equal(api.getCapturedOptions().optionLabel, '不再提醒');
   assert.equal(api.getDismissed(), null);
