@@ -8425,10 +8425,10 @@ async function finalizeIcloudAliasAfterSuccessfulFlow(state) {
 }
 
 async function finalizePhoneActivationAfterSuccessfulFlow(state) {
-  if (typeof phoneVerificationHelpers?.finalizePendingPhoneActivationConfirmation !== 'function') {
-    return null;
+  if (typeof phoneVerificationHelpers?.clearSignupPhoneRuntimeState === 'function') {
+    await phoneVerificationHelpers.clearSignupPhoneRuntimeState();
   }
-  return phoneVerificationHelpers.finalizePendingPhoneActivationConfirmation(state);
+  return null;
 }
 
 async function clearFreeReusablePhoneActivation() {

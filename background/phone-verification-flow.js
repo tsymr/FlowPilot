@@ -7180,6 +7180,7 @@
 
     return {
       cancelSignupPhoneActivation,
+      clearSignupPhoneRuntimeState,
       completeLoginPhoneVerificationFlow,
       completePhoneVerificationFlow,
       completeSignupPhoneVerificationFlow,
