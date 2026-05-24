@@ -342,6 +342,18 @@
     async function resolveSignupEmailForFlow(state, options = {}) {
       let resolvedEmail = state.email;
       let generatedEmailAlreadyPersisted = false;
+
+      // If the carried-over email was already marked as used (e.g. iCloud alias
+      // from a previous successful flow), discard it so a fresh one is fetched.
+      if (resolvedEmail && typeof fetchGeneratedEmail === 'function') {
+        const manualUsage = state?.manualAliasUsage;
+        if (manualUsage && typeof manualUsage === 'object') {
+          const normalized = String(resolvedEmail).trim().toLowerCase();
+          if (normalized && manualUsage[normalized]) {
+            resolvedEmail = '';
+          }
+        }
+      }
       if (isHotmailProvider(state)) {
         const account = await ensureHotmailAccountForFlow({
           allowAllocate: true,
