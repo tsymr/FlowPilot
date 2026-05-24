@@ -237,6 +237,27 @@ if (shouldHandlePollEmailInCurrentFrame) {
   }
 
   async function refreshInbox() {
+    // 优先通过 aria-label / title 属性匹配纯图标按钮（iCloud Mail 刷新按钮常为图标按钮）
+    const attrSelectors = [
+      '[aria-label*="刷新" i]',
+      '[aria-label*="Refresh" i]',
+      '[aria-label*="重新载入" i]',
+      '[title*="刷新" i]',
+      '[title*="Refresh" i]',
+      '[title*="重新载入" i]',
+    ];
+    for (const sel of attrSelectors) {
+      try {
+        const node = document.querySelector(sel);
+        if (node && isVisibleElement(node)) {
+          simulateClick(node);
+          await sleep(1000);
+          return;
+        }
+      } catch (_) { /* skip invalid selector */ }
+    }
+
+    // 再通过文本内容匹配
     const refreshPatterns = [/刷新/i, /refresh/i, /重新载入/i];
     const candidates = document.querySelectorAll('button, [role="button"], a');
     for (const node of candidates) {
@@ -249,6 +270,7 @@ if (shouldHandlePollEmailInCurrentFrame) {
       }
     }
 
+    // 兜底：点击收件箱触发重新加载
     const inboxPatterns = [/收件箱/, /inbox/i];
     for (const node of candidates) {
       const text = normalizeText(node.innerText || node.textContent || '');
@@ -329,8 +351,10 @@ if (shouldHandlePollEmailInCurrentFrame) {
     log(`步骤 ${step}：开始轮询 iCloud 邮箱（最多 ${maxAttempts} 次）`);
     await waitForElement('.content-container', 10000);
     await sleep(1500);
-    const currentItems = collectThreadItems();
-    const sessionBaseline = getOrCreatePollSessionBaseline(pollSessionKey, currentItems);
+
+    // 先以当前（可能过时的）页面状态建立基线，再刷新，确保后续能检测到新邮件
+    const staleItems = collectThreadItems();
+    const sessionBaseline = getOrCreatePollSessionBaseline(pollSessionKey, staleItems);
     const existingSignatures = sessionBaseline.signatures;
     let fallbackCarry = sessionBaseline.fallbackCarry;
     if (sessionBaseline.fromCache) {
@@ -342,10 +366,9 @@ if (shouldHandlePollEmailInCurrentFrame) {
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       log(`步骤 ${step}：正在轮询 iCloud 邮箱，第 ${attempt}/${maxAttempts} 次`);
 
-      if (attempt > 1) {
-        await refreshInbox();
-        await sleep(1200);
-      }
+      // 每次轮询都先刷新收件箱，确保拿到最新邮件列表
+      await refreshInbox();
+      await sleep(1200);
 
       const items = collectThreadItems();
       const useFallback = (fallbackCarry + attempt) > FALLBACK_AFTER;
