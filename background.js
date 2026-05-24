@@ -8130,6 +8130,7 @@ async function finalizeIcloudAliasAfterSuccessfulFlow(state) {
 
   await setIcloudAliasUsedState({ email, used: true }, { silentLog: true });
   await addLog(`iCloud：流程成功后已标记 ${email} 为已用。`, 'ok');
+  await setState({ email: null, step8VerificationTargetEmail: '' });
 
   if (!state.autoDeleteUsedIcloudAlias) {
     return { handled: true, deleted: false };
