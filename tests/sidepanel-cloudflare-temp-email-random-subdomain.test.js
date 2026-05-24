@@ -79,42 +79,6 @@ test('sidepanel modal message preserves line breaks and supports inline links', 
   assert.match(css, /\.modal-message a,\s*[\s\S]*\.modal-alert a/);
 });
 
-test('openCloudflareTempEmailUsageGuidePage opens the contribution portal home page', () => {
-  const bundle = extractFunction('openCloudflareTempEmailUsageGuidePage');
-
-  const api = new Function(`
-const openedUrls = [];
-function getContributionPortalUrl() { return 'https://flowpilot.qlhazycoder.top'; }
-function openExternalUrl(url) { openedUrls.push(url); }
-${bundle}
-return {
-  openedUrls,
-  openCloudflareTempEmailUsageGuidePage,
-};
-  `)();
-
-  api.openCloudflareTempEmailUsageGuidePage();
-  assert.deepEqual(api.openedUrls, ['https://flowpilot.qlhazycoder.top']);
-});
-
-test('openCloudflareTempEmailUsageGuidePage skips opening when the contribution portal URL is empty', () => {
-  const bundle = extractFunction('openCloudflareTempEmailUsageGuidePage');
-
-  const api = new Function(`
-const openedUrls = [];
-function getContributionPortalUrl() { return ''; }
-function openExternalUrl(url) { openedUrls.push(url); }
-${bundle}
-return {
-  openedUrls,
-  openCloudflareTempEmailUsageGuidePage,
-};
-  `)();
-
-  api.openCloudflareTempEmailUsageGuidePage();
-  assert.deepEqual(api.openedUrls, []);
-});
-
 test('openCloudflareTempEmailRepositoryPage opens the extension author repository', () => {
   const bundle = extractFunction('openCloudflareTempEmailRepositoryPage');
 

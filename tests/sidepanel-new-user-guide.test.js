@@ -71,19 +71,12 @@ const localStorage = {
     storage.delete(key);
   },
 };
-const btnContributionMode = { disabled: false };
-let latestState = { accountContributionEnabled: false };
+let latestState = {};
 ${bundle}
 return {
   shouldPromptNewUserGuide,
   setDismissed(value) {
     setNewUserGuidePromptDismissed(value);
-  },
-  setButtonDisabled(value) {
-    btnContributionMode.disabled = Boolean(value);
-  },
-  setAccountContributionMode(value) {
-    latestState = { accountContributionEnabled: Boolean(value) };
   },
 };
 `)();
@@ -94,89 +87,8 @@ return {
   assert.equal(api.shouldPromptNewUserGuide(), false);
 
   api.setDismissed(false);
-  api.setButtonDisabled(true);
   assert.equal(api.shouldPromptNewUserGuide(), false);
 
-  api.setButtonDisabled(false);
-  api.setAccountContributionMode(true);
   assert.equal(api.shouldPromptNewUserGuide(), false);
 });
 
-test('new user guide prompt persists dismissal before awaiting the user choice and opens the contribution page on confirm', async () => {
-  const bundle = [
-    extractFunction('isPromptDismissed'),
-    extractFunction('setPromptDismissed'),
-    extractFunction('isNewUserGuidePromptDismissed'),
-    extractFunction('setNewUserGuidePromptDismissed'),
-    extractFunction('shouldPromptNewUserGuide'),
-    extractFunction('getContributionPortalUrl'),
-    extractFunction('openNewUserGuidePrompt'),
-    extractFunction('maybeShowNewUserGuidePrompt'),
-  ].join('\n');
-
-  const api = new Function(`
-const NEW_USER_GUIDE_PROMPT_DISMISSED_STORAGE_KEY = 'multipage-new-user-guide-prompt-dismissed';
-const storage = new Map();
-const localStorage = {
-  getItem(key) {
-    return storage.has(key) ? storage.get(key) : null;
-  },
-  setItem(key, value) {
-    storage.set(key, String(value));
-  },
-  removeItem(key) {
-    storage.delete(key);
-  },
-};
-const btnContributionMode = { disabled: false };
-const latestState = { accountContributionEnabled: false };
-const contributionContentService = { portalUrl: 'https://flowpilot.qlhazycoder.top' };
-const openedUrls = [];
-let modalOptions = null;
-let nextChoice = 'confirm';
-function openExternalUrl(url) {
-  openedUrls.push(url);
-}
-function openActionModal(options) {
-  modalOptions = options;
-  return Promise.resolve(nextChoice);
-}
-${bundle}
-return {
-  maybeShowNewUserGuidePrompt,
-  getDismissed() {
-    return localStorage.getItem(NEW_USER_GUIDE_PROMPT_DISMISSED_STORAGE_KEY);
-  },
-  getOpenedUrls() {
-    return openedUrls.slice();
-  },
-  getModalOptions() {
-    return modalOptions;
-  },
-  setNextChoice(choice) {
-    nextChoice = choice;
-  },
-};
-`)();
-
-  const confirmed = await api.maybeShowNewUserGuidePrompt();
-  const modalOptions = api.getModalOptions();
-
-  assert.equal(confirmed, true);
-  assert.equal(api.getDismissed(), '1');
-  assert.deepStrictEqual(api.getOpenedUrls(), ['https://flowpilot.qlhazycoder.top']);
-  assert.equal(modalOptions.title, '新手引导');
-  assert.equal(modalOptions.alert.text, '本提示仅出现一次。');
-  assert.deepStrictEqual(
-    modalOptions.actions.map((item) => ({ id: item.id, label: item.label })),
-    [
-      { id: null, label: '取消' },
-      { id: 'confirm', label: '查看引导' },
-    ]
-  );
-
-  api.setNextChoice(null);
-  const skipped = await api.maybeShowNewUserGuidePrompt();
-  assert.equal(skipped, false);
-  assert.deepStrictEqual(api.getOpenedUrls(), ['https://flowpilot.qlhazycoder.top']);
-});

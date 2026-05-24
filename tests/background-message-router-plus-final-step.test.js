@@ -100,7 +100,6 @@ function createRouterWithFinalNode(options = {}) {
     selectLuckmailPurchase: async () => {},
     setCurrentHotmailAccount: async () => {},
     setCurrentMail2925Account: async () => {},
-    setAccountContributionMode: async () => {},
     setEmailState: async () => {},
     setEmailStateSilently: async () => {},
     setIcloudAliasPreservedState: async () => {},

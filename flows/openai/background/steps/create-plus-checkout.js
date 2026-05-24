@@ -1333,7 +1333,7 @@
     }
 
     async function executeGpcCheckoutCreate(state = {}) {
-      let accessToken = String(state?.contributionAccessToken || state?.accessToken || state?.chatgptAccessToken || '').trim();
+      let accessToken = String(state?.accessToken || state?.chatgptAccessToken || '').trim();
       if (!accessToken) {
         await addLog('步骤 6：正在获取 accessToken...', 'info');
         const tokenTabId = await openFreshChatGptTabForCheckoutCreate();

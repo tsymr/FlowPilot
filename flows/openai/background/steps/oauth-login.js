@@ -88,7 +88,7 @@
       return isPhoneSignupMethodForStep7(state)
         && Boolean(state?.phoneVerificationEnabled)
         && !Boolean(state?.plusModeEnabled)
-        && !Boolean(state?.accountContributionEnabled);
+;
     }
 
     function hasStep7PhoneSignupIdentity(state = {}) {

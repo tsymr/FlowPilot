@@ -1,8 +1,6 @@
 (function attachMultiPageKiroWorkflow(root, factory) {
   root.MultiPageKiroWorkflow = factory();
 })(typeof self !== 'undefined' ? self : globalThis, function createMultiPageKiroWorkflow() {
-  const KIRO_CONTRIBUTION_STEP_TITLE = '\u8d21\u732e\u4e0a\u4f20';
-
   function freezeDeep(entry) {
     if (!entry || typeof entry !== 'object' || Object.isFrozen(entry)) {
       return entry;
@@ -125,9 +123,6 @@
   }
 
   function resolveStepTitle(step = {}, options = {}) {
-    if (step?.key === 'kiro-upload-credential' && Boolean(options?.accountContributionEnabled || options?.state?.accountContributionEnabled)) {
-      return KIRO_CONTRIBUTION_STEP_TITLE;
-    }
     return step?.title || '';
   }
 

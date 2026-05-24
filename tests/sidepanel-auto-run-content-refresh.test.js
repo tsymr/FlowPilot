@@ -64,14 +64,11 @@ return new Function(`
 const events = [];
 const DEFAULT_ACTIVE_FLOW_ID = 'openai';
 const latestState = {
-  accountContributionEnabled: false,
   activeFlowId: 'openai',
   flowId: 'openai',
   targetId: 'cpa',
 };
 const inputAutoSkipFailures = { checked: false };
-const inputContributionNickname = { value: 'tester' };
-const inputContributionQq = { value: '123456' };
 const inputAutoSkipFailuresThreadIntervalMinutes = { value: '5' };
 const inputAutoDelayEnabled = { checked: false };
 const inputAutoDelayMinutes = { value: '30' };
@@ -133,10 +130,6 @@ function isAutoRunFallbackRiskPromptDismissed() { return false; }
 async function openAutoRunFallbackRiskConfirmModal() { throw new Error('should not be called'); }
 function setAutoRunFallbackRiskPromptDismissed() {}
 function normalizeAutoDelayMinutes(value) { return Number(value) || 30; }
-async function refreshContributionContentHint() {
-  events.push({ type: 'refresh' });
-  ${refreshImpl ? 'return (' + refreshImpl + ')();' : 'return null;'}
-}
 async function ensureGpcApiKeyReadyForStart() {
   return true;
 }
@@ -149,67 +142,6 @@ return {
 };
 `)();
 }
-
-test('startAutoRunFromCurrentSettings kicks off contribution content refresh without blocking auto run', async () => {
-  const api = createApi();
-
-  const result = await api.startAutoRunFromCurrentSettings();
-
-  assert.equal(result, true);
-  assert.deepEqual(
-    api.getEvents().map((entry) => entry.type),
-    ['refresh', 'sync-settings', 'send']
-  );
-  assert.equal(api.getEvents()[2].message.type, 'AUTO_RUN');
-});
-
-test('startAutoRunFromCurrentSettings continues auto run when contribution content refresh fails', async () => {
-  const api = createApi({
-    refreshImpl: 'async () => { throw new Error("refresh failed"); }',
-  });
-
-  const result = await api.startAutoRunFromCurrentSettings();
-  const events = api.getEvents();
-
-  assert.equal(result, true);
-  assert.deepEqual(
-    events.map((entry) => entry.type),
-    ['refresh', 'sync-settings', 'send', 'warn']
-  );
-  assert.equal(events[2].message.type, 'AUTO_RUN');
-  assert.match(String(events[3].args[0]), /Failed to refresh contribution content hint before auto run/);
-});
-
-test('startAutoRunFromCurrentSettings does not wait for a hanging contribution content refresh', async () => {
-  const api = createApi({
-    refreshImpl: '() => new Promise(() => {})',
-  });
-
-  const result = await api.startAutoRunFromCurrentSettings();
-
-  assert.equal(result, true);
-  assert.deepEqual(
-    api.getEvents().map((entry) => entry.type),
-    ['refresh', 'sync-settings', 'send']
-  );
-});
-
-test('startAutoRunFromCurrentSettings does not block auto run when contribution content has updates', async () => {
-  const api = createApi({
-    refreshImpl: `async () => ({
-      promptVersion: 'questionnaire:2026-04-23T00:00:00Z',
-      items: [{ slug: 'questionnaire', isVisible: true }],
-    })`,
-  });
-
-  const result = await api.startAutoRunFromCurrentSettings();
-
-  assert.equal(result, true);
-  assert.deepEqual(
-    api.getEvents().map((entry) => entry.type),
-    ['refresh', 'sync-settings', 'send']
-  );
-});
 
 test('startAutoRunFromCurrentSettings freezes run count before async settings sync can repaint it', async () => {
   const api = createApi({
@@ -265,12 +197,9 @@ const latestState = {
   activeFlowId: 'site-a',
   targetId: 'cpa',
   signupMethod: 'phone',
-  accountContributionEnabled: false,
   phoneVerificationEnabled: true,
 };
 const inputAutoSkipFailures = { checked: false };
-const inputContributionNickname = { value: 'tester' };
-const inputContributionQq = { value: '123456' };
 const inputAutoSkipFailuresThreadIntervalMinutes = { value: '5' };
 const inputAutoDelayEnabled = { checked: false };
 const inputAutoDelayMinutes = { value: '30' };
@@ -325,10 +254,6 @@ function isAutoRunFallbackRiskPromptDismissed() { return false; }
 async function openAutoRunFallbackRiskConfirmModal() { throw new Error('should not be called'); }
 function setAutoRunFallbackRiskPromptDismissed() {}
 function normalizeAutoDelayMinutes(value) { return Number(value) || 30; }
-async function refreshContributionContentHint() {
-  events.push({ type: 'refresh' });
-  return null;
-}
 async function ensureGpcApiKeyReadyForStart() {
   return true;
 }

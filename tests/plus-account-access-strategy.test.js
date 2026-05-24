@@ -130,34 +130,6 @@ test('sidepanel Plus account access selector only exposes access methods', () =>
   assert.doesNotMatch(selectorHtml, /导入当前 ChatGPT 会话到 SUB2API/);
 });
 
-test('sidepanel keeps requested Plus account strategy while contribution mode forces SUB2API', () => {
-  const api = buildHarness(
-    `{
-      canShowPlusSettings: true,
-      runtimeLocks: { plusModeEnabled: true, accountContribution: true },
-      canEditPlusAccountAccessStrategy: false,
-      availablePlusAccountAccessStrategies: ['sub2api_codex_session'],
-      effectivePlusAccountAccessStrategy: 'sub2api_codex_session',
-    }`,
-    `{
-      activeFlowId: 'openai',
-      targetId: 'cpa',
-      plusPaymentMethod: 'paypal',
-      accountContributionEnabled: true,
-      plusAccountAccessStrategy: 'cpa_codex_session',
-    }`
-  );
-
-  api.updatePlusModeUI();
-
-  assert.equal(api.rowPlusAccountAccessStrategy.style.display, '');
-  assert.equal(api.selectPlusAccountAccessStrategy.disabled, true);
-  assert.equal(api.selectPlusAccountAccessStrategy.dataset.requestedValue, 'cpa_codex_session');
-  assert.equal(api.selectPlusAccountAccessStrategy.value, 'codex_session');
-  assert.equal(api.getRequestedPlusAccountAccessStrategy(), 'cpa_codex_session');
-  assert.match(api.plusAccountAccessStrategyCaption.textContent, /SUB2API/);
-});
-
 test('sidepanel maps generic session import to SUB2API when the current source is SUB2API', () => {
   const api = buildHarness(
     `{
@@ -327,7 +299,6 @@ return {
         plusAccountAccessStrategy: 'sub2api_codex_session',
         signupMethod: 'email',
         phoneSignupReloginAfterBindEmailEnabled: false,
-        accountContributionEnabled: false,
       },
     },
     {
@@ -339,7 +310,6 @@ return {
         plusAccountAccessStrategy: 'sub2api_codex_session',
         signupMethod: 'email',
         phoneSignupReloginAfterBindEmailEnabled: false,
-        accountContributionEnabled: false,
       },
     },
   ]);

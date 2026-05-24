@@ -381,7 +381,6 @@ const window = {
 };
 let latestState = {
   activeFlowId: 'site-a',
-  accountContributionEnabled: false,
   targetId: 'cpa',
 };
 const inputPhoneVerificationEnabled = { checked: true };
@@ -924,7 +923,6 @@ const PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH = 'oauth';
 const PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION = 'sub2api_codex_session';
 const DEFAULT_PLUS_ACCOUNT_ACCESS_STRATEGY = PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH;
 let latestState = {
-  accountContributionEnabled: false,
   mail2925UseAccountPool: false,
   currentMail2925AccountId: '',
   fiveSimCountryOrder: ['thailand', 'england'],

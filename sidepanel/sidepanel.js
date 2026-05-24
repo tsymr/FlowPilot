@@ -36,19 +36,6 @@ const btnIgnoreRelease = document.getElementById('btn-ignore-release');
 const btnOpenRelease = document.getElementById('btn-open-release');
 const settingsCard = document.getElementById('settings-card');
 const selectFlow = document.getElementById('select-flow');
-const accountContributionPanel = document.getElementById('contribution-mode-panel');
-const accountContributionBadge = document.getElementById('contribution-mode-badge');
-const accountContributionText = document.getElementById('contribution-mode-text');
-const inputContributionNickname = document.getElementById('input-contribution-nickname');
-const inputContributionQq = document.getElementById('input-contribution-qq');
-const contributionPrimaryStatusLabel = document.getElementById('contribution-primary-status-label');
-const contributionSecondaryStatusLabel = document.getElementById('contribution-secondary-status-label');
-const contributionOauthStatus = document.getElementById('contribution-oauth-status');
-const contributionCallbackStatus = document.getElementById('contribution-callback-status');
-const accountContributionSummary = document.getElementById('contribution-mode-summary');
-const btnStartContribution = document.getElementById('btn-start-contribution');
-const btnOpenContributionUpload = document.getElementById('btn-open-contribution-upload');
-const btnExitContributionMode = document.getElementById('btn-exit-contribution-mode');
 const displayOauthUrl = document.getElementById('display-oauth-url');
 const displayLocalhostUrl = document.getElementById('display-localhost-url');
 const displayStatus = document.getElementById('display-status');
@@ -63,11 +50,6 @@ const btnTogglePassword = document.getElementById('btn-toggle-password');
 const btnSaveSettings = document.getElementById('btn-save-settings');
 const btnStop = document.getElementById('btn-stop');
 const btnReset = document.getElementById('btn-reset');
-const btnContributionMode = document.getElementById('btn-contribution-mode');
-const contributionUpdateLayer = document.getElementById('contribution-update-layer');
-const contributionUpdateHint = document.getElementById('contribution-update-hint');
-const contributionUpdateHintText = document.getElementById('contribution-update-hint-text');
-const btnDismissContributionUpdateHint = document.getElementById('btn-dismiss-contribution-update-hint');
 const stepsProgress = document.getElementById('steps-progress');
 const btnAutoRun = document.getElementById('btn-auto-run');
 const btnAutoContinue = document.getElementById('btn-auto-continue');
@@ -873,9 +855,6 @@ function getStepDefinitionsForMode(plusModeEnabled = false, options = {}) {
   const phoneSignupReloginAfterBindEmailEnabled = typeof options === 'string'
     ? currentPhoneSignupReloginAfterBindEmailEnabled
     : Boolean(options.phoneSignupReloginAfterBindEmailEnabled ?? currentPhoneSignupReloginAfterBindEmailEnabled);
-  const accountContributionEnabled = typeof options === 'string'
-    ? Boolean(typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false)
-    : Boolean(options.accountContributionEnabled ?? (typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false));
   const activeFlowId = typeof options === 'string'
     ? ((typeof latestState !== 'undefined' ? latestState?.activeFlowId : '') || defaultFlowId)
     : (options.activeFlowId || (typeof latestState !== 'undefined' ? latestState?.activeFlowId : '') || defaultFlowId);
@@ -886,7 +865,6 @@ function getStepDefinitionsForMode(plusModeEnabled = false, options = {}) {
     plusAccountAccessStrategy: normalizePlusAccountAccessStrategy(rawPlusAccountAccessStrategy),
     signupMethod: normalizeSignupMethod(rawSignupMethod),
     phoneSignupReloginAfterBindEmailEnabled,
-    accountContributionEnabled,
   }) || [])
     .sort((left, right) => {
       const leftOrder = Number.isFinite(left.order) ? left.order : left.id;
@@ -912,9 +890,6 @@ function getWorkflowNodesForMode(plusModeEnabled = false, options = {}) {
   const phoneSignupReloginAfterBindEmailEnabled = typeof options === 'string'
     ? currentPhoneSignupReloginAfterBindEmailEnabled
     : Boolean(options.phoneSignupReloginAfterBindEmailEnabled ?? currentPhoneSignupReloginAfterBindEmailEnabled);
-  const accountContributionEnabled = typeof options === 'string'
-    ? Boolean(typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false)
-    : Boolean(options.accountContributionEnabled ?? (typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false));
   const activeFlowId = typeof options === 'string'
     ? ((typeof latestState !== 'undefined' ? latestState?.activeFlowId : '') || defaultFlowId)
     : (options.activeFlowId || (typeof latestState !== 'undefined' ? latestState?.activeFlowId : '') || defaultFlowId);
@@ -925,7 +900,6 @@ function getWorkflowNodesForMode(plusModeEnabled = false, options = {}) {
     plusAccountAccessStrategy: normalizePlusAccountAccessStrategy(rawPlusAccountAccessStrategy),
     signupMethod: normalizeSignupMethod(rawSignupMethod),
     phoneSignupReloginAfterBindEmailEnabled,
-    accountContributionEnabled,
   });
   if (Array.isArray(nodes) && nodes.length) {
     return nodes.slice().sort((left, right) => {
@@ -993,10 +967,6 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
   const phoneSignupReloginAfterBindEmailEnabled = typeof options === 'string'
     ? currentPhoneSignupReloginAfterBindEmailEnabled
     : Boolean(options.phoneSignupReloginAfterBindEmailEnabled ?? currentPhoneSignupReloginAfterBindEmailEnabled);
-  const accountContributionEnabled = Boolean(
-    options.accountContributionEnabled
-    ?? (typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false)
-  );
   currentPlusPaymentMethod = normalizePlusPaymentMethod(rawPaymentMethod);
   currentPlusAccountAccessStrategy = normalizePlusAccountAccessStrategy(rawPlusAccountAccessStrategy);
   currentSignupMethod = normalizeSignupMethod(rawSignupMethod);
@@ -1015,7 +985,6 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
     plusAccountAccessStrategy: currentPlusAccountAccessStrategy,
     signupMethod: currentSignupMethod,
     phoneSignupReloginAfterBindEmailEnabled: currentPhoneSignupReloginAfterBindEmailEnabled,
-    accountContributionEnabled,
   });
   const nextWorkflowNodes = typeof getWorkflowNodesForMode === 'function'
     ? getWorkflowNodesForMode(currentPlusModeEnabled, {
@@ -1024,7 +993,6 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
       plusAccountAccessStrategy: currentPlusAccountAccessStrategy,
       signupMethod: currentSignupMethod,
       phoneSignupReloginAfterBindEmailEnabled: currentPhoneSignupReloginAfterBindEmailEnabled,
-      accountContributionEnabled,
     })
     : stepDefinitions.map((step) => ({
       nodeId: String(step.key || step.id || '').trim(),
@@ -1047,7 +1015,6 @@ function rebuildStepDefinitionState(plusModeEnabled = false, options = {}) {
     SKIPPABLE_NODES = new Set(typeof NODE_IDS !== 'undefined' ? NODE_IDS : []);
   }
 }
-const CONTRIBUTION_CONTENT_PROMPT_DISMISSED_VERSION_STORAGE_KEY = 'multipage-contribution-content-prompt-dismissed-version';
 const AUTO_RUN_FALLBACK_RISK_WARNING_MIN_RUNS = 3;
 const HOTMAIL_SERVICE_MODE_REMOTE = 'remote';
 const HOTMAIL_SERVICE_MODE_LOCAL = 'local';
@@ -1062,7 +1029,6 @@ const DEFAULT_LUCKMAIL_EMAIL_TYPE = 'ms_graph';
 const DEFAULT_YYDS_MAIL_BASE_URL = window.YydsMailUtils?.DEFAULT_YYDS_MAIL_BASE_URL || 'https://maliapi.215.im/v1';
 const DISPLAY_TIMEZONE = 'Asia/Shanghai';
 const DEFAULT_ACCOUNT_RUN_HISTORY_HELPER_BASE_URL = 'http://127.0.0.1:17373';
-const CONTRIBUTION_UPLOAD_URL = 'https://flowpilot.qlhazycoder.top/';
 const DEFAULT_PHONE_VERIFICATION_ENABLED = false;
 const DEFAULT_HERO_SMS_COUNTRY_ID = 52;
 const DEFAULT_HERO_SMS_COUNTRY_LABEL = 'Thailand';
@@ -1371,8 +1337,6 @@ let scheduledCountdownTimer = null;
 let configMenuOpen = false;
 let configActionInFlight = false;
 let currentReleaseSnapshot = null;
-let currentContributionContentSnapshot = null;
-let contributionContentSnapshotRequestInFlight = null;
 function normalizeAutomationWindowId(value) {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -1554,7 +1518,6 @@ let customEmailPoolEntriesState = [];
 const EYE_OPEN_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_CLOSED_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19C5 19 1 12 1 12a21.77 21.77 0 0 1 5.06-6.94"/><path d="M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a21.86 21.86 0 0 1-2.16 3.19"/><path d="M1 1l22 22"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/></svg>';
 const PRIVACY_MASKED_INPUT_IDS = Object.freeze([
-  'input-contribution-qq',
   'input-sub2api-url',
   'input-sub2api-email',
   'input-sub2api-default-proxy',
@@ -1612,7 +1575,6 @@ const normalizeLuckmailTimestampValue = window.LuckMailUtils?.normalizeTimestamp
     return Number.isFinite(timestamp) ? timestamp : 0;
   });
 const sidepanelUpdateService = window.SidepanelUpdateService;
-const contributionContentService = window.SidepanelContributionContentService;
 const sharedFormDialog = window.SidepanelFormDialog?.createFormDialog?.({
   overlay: sharedFormModal,
   titleNode: sharedFormModalTitle,
@@ -2194,37 +2156,13 @@ function shouldPromptNewUserGuide() {
   if (isNewUserGuidePromptDismissed()) {
     return false;
   }
-  if (!btnContributionMode || btnContributionMode.disabled) {
-    return false;
-  }
-  if (typeof isContributionModeActiveForFlow === 'function'
-    ? isContributionModeActiveForFlow(latestState)
-    : Boolean(latestState?.accountContributionEnabled)) {
-    return false;
-  }
   return true;
-}
-
-function getContributionPortalUrl() {
-  return String(contributionContentService?.portalUrl || 'https://flowpilot.qlhazycoder.top').trim();
-}
-
-function getContributionContentFlowId(state = latestState) {
-  return String(state?.activeFlowId || state?.flowId || DEFAULT_ACTIVE_FLOW_ID).trim().toLowerCase() || DEFAULT_ACTIVE_FLOW_ID;
-}
-
-function getContributionContentTargetId(state = latestState) {
-  const flowId = getContributionContentFlowId(state);
-  if (typeof getSelectedTargetIdForState === 'function') {
-    return getSelectedTargetIdForState(state, flowId);
-  }
-  return normalizeTargetIdForFlow(flowId, state?.targetId || '', getDefaultTargetIdForFlow(flowId));
 }
 
 function openNewUserGuidePrompt() {
   return openActionModal({
     title: '新手引导',
-    message: '如果你是第一次使用，可以先查看贡献页里的公告和使用教程。点击“查看引导”会自动打开贡献页面。',
+    message: '如果你是第一次使用，可以先查看使用教程。',
     alert: {
       text: '本提示仅出现一次。',
     },
@@ -2243,36 +2181,9 @@ async function maybeShowNewUserGuidePrompt() {
   setNewUserGuidePromptDismissed(true);
   const choice = await openNewUserGuidePrompt();
   if (choice === 'confirm') {
-    openExternalUrl(getContributionPortalUrl());
     return true;
   }
   return false;
-}
-
-function getContributionContentPromptScope(snapshot = currentContributionContentSnapshot) {
-  return {
-    flowId: String(snapshot?.flowId || getContributionContentFlowId()).trim().toLowerCase() || DEFAULT_ACTIVE_FLOW_ID,
-    targetId: String(snapshot?.targetId || getContributionContentTargetId()).trim().toLowerCase() || 'cpa',
-  };
-}
-
-function getContributionContentPromptDismissedStorageKey(snapshot = currentContributionContentSnapshot) {
-  const scope = getContributionContentPromptScope(snapshot);
-  return `${CONTRIBUTION_CONTENT_PROMPT_DISMISSED_VERSION_STORAGE_KEY}:${scope.flowId}:${scope.targetId}`;
-}
-
-function getDismissedContributionContentPromptVersion(snapshot = currentContributionContentSnapshot) {
-  return String(localStorage.getItem(getContributionContentPromptDismissedStorageKey(snapshot)) || '').trim();
-}
-
-function setDismissedContributionContentPromptVersion(version, snapshot = currentContributionContentSnapshot) {
-  const normalized = String(version || '').trim();
-  const storageKey = getContributionContentPromptDismissedStorageKey(snapshot);
-  if (normalized) {
-    localStorage.setItem(storageKey, normalized);
-  } else {
-    localStorage.removeItem(storageKey);
-  }
 }
 
 function isAutoSkipFailuresPromptDismissed() {
@@ -2478,25 +2389,18 @@ async function openAutoRunFallbackRiskConfirmModal(totalRuns) {
 
 function updateConfigMenuControls() {
   const disabled = configActionInFlight || settingsSaveInFlight;
-  const accountContributionEnabled = typeof isContributionModeActiveForFlow === 'function'
-    ? isContributionModeActiveForFlow(latestState)
-    : Boolean(latestState?.accountContributionEnabled);
-  if (accountContributionEnabled && configMenuOpen) {
-    configMenuOpen = false;
-  }
   const importLocked = disabled
-    || accountContributionEnabled
     || currentAutoRun.autoRunning
     || Object.values(getStepStatuses()).some((status) => status === 'running');
   if (btnConfigMenu) {
-    btnConfigMenu.disabled = disabled || accountContributionEnabled;
+    btnConfigMenu.disabled = disabled;
     btnConfigMenu.setAttribute('aria-expanded', String(configMenuOpen));
   }
   if (configMenu) {
-    configMenu.hidden = accountContributionEnabled || !configMenuOpen;
+    configMenu.hidden = !configMenuOpen;
   }
   if (btnExportSettings) {
-    btnExportSettings.disabled = disabled || accountContributionEnabled;
+    btnExportSettings.disabled = disabled;
   }
   if (btnImportSettings) {
     btnImportSettings.disabled = importLocked;
@@ -2928,12 +2832,6 @@ function hasSavedProgress(state = latestState) {
   return Object.values(statuses).some((status) => status !== 'pending' && status !== 'disabled');
 }
 
-function isContributionModeSwitchBlocked(state = latestState) {
-  const statuses = getStepStatuses(state);
-  const anyRunning = Object.values(statuses).some((status) => status === 'running');
-  return anyRunning || isAutoRunLockedPhase() || isAutoRunPausedPhase() || isAutoRunScheduledPhase();
-}
-
 function shouldOfferAutoModeChoice(state = latestState) {
   return hasSavedProgress(state) && getFirstUnfinishedStep(state) !== null;
 }
@@ -2981,19 +2879,6 @@ function syncLatestState(nextState) {
     : selectedTargetId;
 
   renderAccountRecords(latestState);
-}
-
-function isContributionModeActiveForFlow(state = latestState, flowId = undefined) {
-  const rawFlowId = flowId !== undefined
-    ? flowId
-    : (state?.activeFlowId || state?.flowId || DEFAULT_ACTIVE_FLOW_ID);
-  const normalizedFlowId = typeof normalizeFlowId === 'function'
-    ? normalizeFlowId(rawFlowId, DEFAULT_ACTIVE_FLOW_ID)
-    : (String(rawFlowId || DEFAULT_ACTIVE_FLOW_ID).trim().toLowerCase() || DEFAULT_ACTIVE_FLOW_ID);
-  const stateFlowId = typeof normalizeFlowId === 'function'
-    ? normalizeFlowId(state?.activeFlowId || state?.flowId || DEFAULT_ACTIVE_FLOW_ID, DEFAULT_ACTIVE_FLOW_ID)
-    : (String(state?.activeFlowId || state?.flowId || DEFAULT_ACTIVE_FLOW_ID).trim().toLowerCase() || DEFAULT_ACTIVE_FLOW_ID);
-  return normalizedFlowId === stateFlowId && Boolean(state?.accountContributionEnabled);
 }
 
 let accountRunHistoryRefreshTimer = null;
@@ -3492,20 +3377,6 @@ function syncAutoRunState(source = {}) {
     countdownTitle: readAutoRunStateValue(source, ['autoRunCountdownTitle', 'countdownTitle'], currentAutoRun.countdownTitle),
     countdownNote: readAutoRunStateValue(source, ['autoRunCountdownNote', 'countdownNote'], currentAutoRun.countdownNote),
   };
-}
-
-function isContributionButtonLocked() {
-  const autoActive = currentAutoRun.autoRunning
-    || isAutoRunLockedPhase()
-    || isAutoRunPausedPhase()
-    || isAutoRunScheduledPhase();
-  if (autoActive) {
-    return false;
-  }
-
-  const statuses = getStepStatuses();
-  const anyRunning = Object.values(statuses).some((status) => status === 'running');
-  return anyRunning;
 }
 
 function isAutoRunLockedPhase() {
@@ -4117,9 +3988,6 @@ function collectSettingsPayload() {
       }
       return normalized || defaultFlowId;
     })();
-  const accountContributionEnabled = typeof isContributionModeActiveForFlow === 'function'
-    ? isContributionModeActiveForFlow(latestState, activeFlowId)
-    : (activeFlowId === defaultFlowId && Boolean(latestState?.accountContributionEnabled));
   const icloudFetchModeRawValue = typeof selectIcloudFetchMode !== 'undefined'
     ? String(selectIcloudFetchMode?.value || '')
     : '';
@@ -4934,9 +4802,7 @@ function collectSettingsPayload() {
         ? inputGpcHelperLocalSmsUrl.value
         : (latestState?.gopayHelperLocalSmsHelperUrl || '')
     ),
-    ...(accountContributionEnabled ? {} : {
-      customPassword: inputPassword.value,
-    }),
+    customPassword: inputPassword.value,
     mailProvider: selectMailProvider.value,
     mail2925Mode: getSelectedMail2925Mode(),
     mail2925UseAccountPool,
@@ -4954,10 +4820,8 @@ function collectSettingsPayload() {
     icloudFetchMode: (icloudFetchModeRawValue.trim().toLowerCase() === 'always_new'
       ? 'always_new'
       : 'reuse_existing'),
-    ...(accountContributionEnabled ? {} : {
-      accountRunHistoryTextEnabled: true,
-      accountRunHistoryHelperBaseUrl: normalizeAccountRunHistoryHelperBaseUrlValue(inputAccountRunHistoryHelperBaseUrl?.value),
-    }),
+    accountRunHistoryTextEnabled: true,
+    accountRunHistoryHelperBaseUrl: normalizeAccountRunHistoryHelperBaseUrlValue(inputAccountRunHistoryHelperBaseUrl?.value),
     ...buildManagedAliasBaseEmailPayload(),
     inbucketHost: inputInbucketHost.value.trim(),
     inbucketMailbox: inputInbucketMailbox.value.trim(),
@@ -9131,9 +8995,6 @@ function canSelectPhoneSignupMethod() {
   const plusModeEnabled = typeof inputPlusModeEnabled !== 'undefined' && inputPlusModeEnabled
     ? Boolean(inputPlusModeEnabled.checked)
     : Boolean(latestState?.plusModeEnabled);
-  const accountContributionEnabled = typeof isContributionModeActiveForFlow === 'function'
-    ? isContributionModeActiveForFlow(latestState)
-    : Boolean(latestState?.accountContributionEnabled);
   const capabilityState = typeof resolveCurrentSidepanelCapabilities === 'function'
     ? resolveCurrentSidepanelCapabilities({
       targetId: typeof getSelectedTargetId === 'function'
@@ -9143,7 +9004,6 @@ function canSelectPhoneSignupMethod() {
         ...(typeof latestState !== 'undefined' ? latestState : {}),
         phoneVerificationEnabled: phoneEnabled,
         plusModeEnabled,
-        accountContributionEnabled,
       },
     })
     : (() => {
@@ -9161,7 +9021,6 @@ function canSelectPhoneSignupMethod() {
             ...(typeof latestState !== 'undefined' ? latestState : {}),
             phoneVerificationEnabled: phoneEnabled,
             plusModeEnabled,
-            accountContributionEnabled,
           },
         })
         : null;
@@ -9169,7 +9028,7 @@ function canSelectPhoneSignupMethod() {
   if (capabilityState && typeof capabilityState.canSelectPhoneSignup === 'boolean') {
     return capabilityState.canSelectPhoneSignup;
   }
-  return phoneEnabled && !plusModeEnabled && !accountContributionEnabled;
+  return phoneEnabled && !plusModeEnabled;
 }
 
 function isSignupMethodSwitchLocked() {
@@ -9191,9 +9050,6 @@ function updateSignupMethodUI(options = {}) {
 
   let selectedMethod = normalizeSignupMethod(getSelectedSignupMethod());
   const phoneSelectable = canSelectPhoneSignupMethod();
-  const accountContributionEnabled = typeof isContributionModeActiveForFlow === 'function'
-    ? isContributionModeActiveForFlow(latestState)
-    : Boolean(latestState?.accountContributionEnabled);
   if (!phoneSelectable && selectedMethod === SIGNUP_METHOD_PHONE) {
     selectedMethod = setSignupMethod(SIGNUP_METHOD_EMAIL);
     if (options.notify && typeof showToast === 'function') {
@@ -9214,8 +9070,6 @@ function updateSignupMethodUI(options = {}) {
         button.title = '开启接码后可选择手机号注册';
       } else if (typeof inputPlusModeEnabled !== 'undefined' && inputPlusModeEnabled?.checked) {
         button.title = 'Plus 模式暂不支持手机号注册';
-      } else if (accountContributionEnabled) {
-        button.title = '账号贡献开启时不能使用手机号注册';
       } else if (locked) {
         button.title = '自动流程运行中不能切换注册方式';
       } else {
@@ -9687,9 +9541,7 @@ function updatePlusModeUI() {
       option.hidden = enabled ? !optionSupported : false;
       option.disabled = enabled ? !optionSupported : false;
     });
-    selectPlusAccountAccessStrategy.dataset.requestedValue = capabilityState?.runtimeLocks?.accountContribution
-      ? requestedPlusAccountAccessStrategy
-      : effectivePlusAccountAccessStrategy;
+    selectPlusAccountAccessStrategy.dataset.requestedValue = effectivePlusAccountAccessStrategy;
     selectPlusAccountAccessStrategy.value = normalizeStrategyUiValue(effectivePlusAccountAccessStrategy);
     selectPlusAccountAccessStrategy.disabled = !enabled || !canEditPlusAccountAccessStrategy;
     selectPlusAccountAccessStrategy.setAttribute('aria-disabled', String(selectPlusAccountAccessStrategy.disabled));
@@ -10659,7 +10511,7 @@ function applyAutoRunStatus(payload = currentAutoRun) {
   syncScheduledCountdownTicker();
   updateStopButtonState(scheduled || paused || locked || Object.values(getStepStatuses()).some(status => status === 'running'));
   updateConfigMenuControls();
-  renderContributionMode();
+  updateSignupMethodUI({ notify: true });
 }
 
 function initializeManualStepActions() {
@@ -10745,10 +10597,6 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
         ? inputPhoneSignupReloginAfterBindEmail.checked
         : currentPhoneSignupReloginAfterBindEmailEnabled)
   );
-  const nextAccountContributionEnabled = Boolean(
-    options.accountContributionEnabled
-      ?? (typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false)
-  );
   const nextPaymentMethod = normalizePlusPaymentMethod(rawPaymentMethod);
   const nextActiveFlowId = String(
     options.activeFlowId
@@ -10775,7 +10623,6 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
     || nextPlusAccountAccessStrategy !== currentPlusAccountAccessStrategy
     || nextSignupMethod !== currentSignupMethod
     || nextPhoneSignupReloginAfterBindEmailEnabled !== currentPhoneSignupReloginAfterBindEmailEnabled
-    || nextAccountContributionEnabled !== Boolean(typeof latestState !== 'undefined' ? latestState?.accountContributionEnabled : false)
     || nextActiveFlowId !== currentFlowId
     || paymentTitleChanged;
   if (!shouldRender) {
@@ -10788,7 +10635,6 @@ function syncStepDefinitionsForMode(plusModeEnabled = false, plusPaymentMethodOr
     plusAccountAccessStrategy: nextPlusAccountAccessStrategy,
     signupMethod: nextSignupMethod,
     phoneSignupReloginAfterBindEmailEnabled: nextPhoneSignupReloginAfterBindEmailEnabled,
-    accountContributionEnabled: nextAccountContributionEnabled,
   });
   renderStepsList();
 }
@@ -10815,7 +10661,6 @@ function syncStepDefinitionsFromUiState(stateOverrides = {}) {
     plusAccountAccessStrategy: stepDefinitionState.plusAccountAccessStrategy,
     signupMethod: stepDefinitionState.signupMethod,
     phoneSignupReloginAfterBindEmailEnabled: Boolean(nextState?.phoneSignupReloginAfterBindEmailEnabled),
-    accountContributionEnabled: Boolean(nextState?.accountContributionEnabled),
   });
   return stepDefinitionState;
 }
@@ -10839,7 +10684,6 @@ function applySettingsState(state) {
       plusPaymentMethod: state?.plusPaymentMethod,
       signupMethod: stepDefinitionState.signupMethod,
       phoneSignupReloginAfterBindEmailEnabled: Boolean(state?.phoneSignupReloginAfterBindEmailEnabled),
-      accountContributionEnabled: Boolean(state?.accountContributionEnabled),
     });
   }
   const fallbackIpProxyService = '711proxy';
@@ -11207,12 +11051,6 @@ function applySettingsState(state) {
   if (inputAccountRunHistoryHelperBaseUrl) {
     inputAccountRunHistoryHelperBaseUrl.value = normalizeAccountRunHistoryHelperBaseUrlValue(state?.accountRunHistoryHelperBaseUrl);
   }
-  if (inputContributionNickname) {
-    inputContributionNickname.value = state?.contributionNickname || '';
-  }
-  if (inputContributionQq) {
-    inputContributionQq.value = state?.contributionQq || '';
-  }
   if (inputMail2925UseAccountPool) {
     inputMail2925UseAccountPool.checked = Boolean(state?.mail2925UseAccountPool);
   }
@@ -11493,7 +11331,7 @@ async function restoreState() {
 
     updateStatusDisplay(latestState);
     updateProgressCounter();
-    renderContributionMode();
+    updateSignupMethodUI({ notify: true });
   } catch (err) {
     console.error('Failed to restore state:', err);
     if (typeof applyOperationDelayState === 'function') {
@@ -11570,14 +11408,6 @@ function ignoreCurrentReleaseUpdate() {
     ignoredVersion,
   });
   showToast(`已忽略 ${ignoredVersion} 更新，有新版本时会再次提醒。`, 'info', 2200);
-}
-
-function openCloudflareTempEmailUsageGuidePage() {
-  const targetUrl = getContributionPortalUrl();
-  if (!targetUrl) {
-    return;
-  }
-  openExternalUrl(targetUrl);
 }
 
 function openCloudflareTempEmailRepositoryPage() {
@@ -11791,170 +11621,8 @@ async function initializeReleaseInfo() {
   renderReleaseSnapshot(snapshot);
 }
 
-function getContributionUpdateHintMessage(snapshot = currentContributionContentSnapshot) {
-  const lines = getContributionUpdatePromptLines(snapshot);
-  if (!lines.length) {
-    return '';
-  }
-  if (lines.length === 1) {
-    return lines[0];
-  }
-  return lines.map((line, index) => `${index + 1}. ${line}`).join('\n');
-}
-
-function getContributionUpdatePromptLines(snapshot = currentContributionContentSnapshot) {
-  if (!snapshot?.promptVersion) {
-    return [];
-  }
-
-  const items = Array.isArray(snapshot.items) ? snapshot.items : [];
-  const autoRunNoticeItem = items.find((item) =>
-    item
-    && String(item.slug || '').trim().toLowerCase() === 'auto_run_notice'
-  );
-  if (autoRunNoticeItem) {
-    const noticeText = String(autoRunNoticeItem.text || '').trim();
-    return autoRunNoticeItem.isVisible && noticeText ? [noticeText] : [];
-  }
-
-  const hasAnnouncementOrTutorial = items.some((item) =>
-    item
-    && item.isVisible
-    && ['announcement', 'tutorial'].includes(String(item.slug || '').trim().toLowerCase())
-  );
-  const hasQuestionnaire = items.some((item) =>
-    item
-    && item.isVisible
-    && String(item.slug || '').trim().toLowerCase() === 'questionnaire'
-  );
-
-  const lines = [];
-  if (hasAnnouncementOrTutorial) {
-    lines.push('公告 / 使用教程有更新了，可点上方“贡献/使用”查看。');
-  }
-  if (hasQuestionnaire) {
-    lines.push('有新的征求意见，请佬友共同参与选择。');
-  }
-  return lines;
-}
-
-function positionContributionUpdateHint() {
-  if (!contributionUpdateLayer || !contributionUpdateHint || !btnContributionMode) {
-    return;
-  }
-  if (contributionUpdateLayer.hidden || contributionUpdateHint.hidden) {
-    return;
-  }
-
-  const buttonRect = btnContributionMode.getBoundingClientRect();
-  const viewportWidth = Math.max(document.documentElement?.clientWidth || 0, window.innerWidth || 0);
-  const viewportHeight = Math.max(document.documentElement?.clientHeight || 0, window.innerHeight || 0);
-  const hintWidth = contributionUpdateHint.offsetWidth || 220;
-  const hintHeight = contributionUpdateHint.offsetHeight || 56;
-  const viewportPadding = 12;
-  const gap = 10;
-
-  const maxLeft = Math.max(viewportPadding, viewportWidth - hintWidth - viewportPadding);
-  const left = Math.min(Math.max(viewportPadding, Math.round(buttonRect.left)), maxLeft);
-  const shouldPlaceAbove = (buttonRect.bottom + gap + hintHeight) > (viewportHeight - viewportPadding)
-    && buttonRect.top > (hintHeight + gap + viewportPadding);
-  const top = shouldPlaceAbove
-    ? Math.max(viewportPadding, Math.round(buttonRect.top - hintHeight - gap))
-    : Math.max(viewportPadding, Math.round(buttonRect.bottom + gap));
-  const buttonCenter = Math.round(buttonRect.left + (buttonRect.width / 2));
-  const arrowOffset = Math.min(Math.max(16, buttonCenter - left), Math.max(16, hintWidth - 16));
-
-  contributionUpdateHint.style.left = `${left}px`;
-  contributionUpdateHint.style.top = `${top}px`;
-  contributionUpdateHint.style.setProperty('--contribution-update-arrow-left', `${arrowOffset}px`);
-}
-
-function shouldShowContributionUpdateHint(snapshot = currentContributionContentSnapshot) {
-  const promptVersion = String(snapshot?.promptVersion || '').trim();
-  if (!contributionUpdateLayer || !contributionUpdateHint || !contributionUpdateHintText || !btnContributionMode) {
-    return false;
-  }
-  if (!promptVersion) {
-    return false;
-  }
-  if (!getContributionUpdatePromptLines(snapshot).length) {
-    return false;
-  }
-  if (promptVersion === getDismissedContributionContentPromptVersion(snapshot)) {
-    return false;
-  }
-  if (typeof isContributionModeActiveForFlow === 'function'
-    ? isContributionModeActiveForFlow(latestState)
-    : Boolean(latestState?.accountContributionEnabled)) {
-    return false;
-  }
-  return !btnContributionMode.disabled;
-}
-
-function renderContributionUpdateHint(snapshot = currentContributionContentSnapshot) {
-  if (!contributionUpdateLayer || !contributionUpdateHint) {
-    return;
-  }
-
-  const visible = shouldShowContributionUpdateHint(snapshot);
-  contributionUpdateLayer.hidden = !visible;
-  contributionUpdateHint.hidden = !visible;
-  if (!visible || !contributionUpdateHintText) {
-    return;
-  }
-
-  contributionUpdateHintText.textContent = getContributionUpdateHintMessage(snapshot);
-  if (typeof window.requestAnimationFrame === 'function') {
-    window.requestAnimationFrame(() => positionContributionUpdateHint());
-    return;
-  }
-  positionContributionUpdateHint();
-}
-
-function dismissContributionUpdateHint() {
-  const promptVersion = String(currentContributionContentSnapshot?.promptVersion || '').trim();
-  if (promptVersion) {
-    setDismissedContributionContentPromptVersion(promptVersion);
-  }
-  renderContributionUpdateHint();
-}
-
-async function refreshContributionContentHint() {
-  if (!contributionContentService?.getContentUpdateSnapshot) {
-    currentContributionContentSnapshot = null;
-    renderContributionUpdateHint();
-    return null;
-  }
-  if (contributionContentSnapshotRequestInFlight) {
-    return contributionContentSnapshotRequestInFlight;
-  }
-
-  contributionContentSnapshotRequestInFlight = contributionContentService.getContentUpdateSnapshot({
-    flowId: getContributionContentFlowId(),
-    targetId: getContributionContentTargetId(),
-  })
-    .then((snapshot) => {
-      currentContributionContentSnapshot = snapshot;
-      renderContributionUpdateHint(snapshot);
-      return snapshot;
-    })
-    .catch((error) => {
-      currentContributionContentSnapshot = null;
-      renderContributionUpdateHint(null);
-      throw error;
-    })
-    .finally(() => {
-      contributionContentSnapshotRequestInFlight = null;
-    });
-
-  return contributionContentSnapshotRequestInFlight;
-}
-
 function syncPasswordField(state) {
-  const accountContributionEnabled = typeof isContributionModeActiveForFlow === 'function'
-    ? isContributionModeActiveForFlow(state)
-    : Boolean(state?.accountContributionEnabled);
-  inputPassword.value = accountContributionEnabled ? '' : (state.customPassword || state.password || '');
+  inputPassword.value = (state.customPassword || state.password || '');
 }
 
 function isCustomMailProvider(provider = selectMailProvider.value) {
@@ -13327,10 +12995,9 @@ function updateButtonStates() {
     selectIcloudFetchMode.disabled = disableIcloudControls || !allowIcloudFetchMode;
   }
   if (checkboxAutoDeleteIcloud) checkboxAutoDeleteIcloud.disabled = disableIcloudControls;
-  if (btnContributionMode) btnContributionMode.disabled = isContributionButtonLocked();
   applyStepExecutionRangeState(latestState);
   updateStopButtonState(anyRunning || autoScheduled || isAutoRunPausedPhase() || autoLocked);
-  renderContributionMode();
+  updateSignupMethodUI({ notify: true });
 }
 
 function updateStopButtonState(active) {
@@ -14051,86 +13718,6 @@ const bindAccountRecordEvents = accountRecordsManager?.bindEvents
 const closeAccountRecordsPanel = accountRecordsManager?.closePanel
   || (() => { });
 bindAccountRecordEvents();
-const accountContributionManager = window.SidepanelContributionMode?.createContributionModeManager({
-  state: {
-    getLatestState: () => latestState,
-  },
-  dom: {
-    btnConfigMenu,
-    btnContributionMode,
-    inputContributionNickname,
-    inputContributionQq,
-    contributionPrimaryStatusLabel,
-    contributionSecondaryStatusLabel,
-    contributionCallbackStatus,
-    btnExitContributionMode,
-    btnOpenAccountRecords,
-    btnOpenContributionUpload,
-    btnStartContribution,
-    accountContributionBadge,
-    accountContributionPanel,
-    accountContributionSummary,
-    accountContributionText,
-    contributionOauthStatus,
-    rowAccountRunHistoryHelperBaseUrl,
-    rowPhoneVerificationEnabled,
-    rowCustomPassword,
-    rowLocalCpaStep9Mode,
-    rowSub2ApiAccountPriority,
-    rowSub2ApiDefaultProxy,
-    rowSub2ApiEmail,
-    rowSub2ApiGroup,
-    rowSub2ApiPassword,
-    rowSub2ApiUrl,
-    rowVpsPassword,
-    rowVpsUrl,
-    selectPanelMode,
-  },
-  helpers: {
-    applySettingsState,
-    closeAccountRecordsPanel,
-    closeConfigMenu,
-    getContributionNickname: () => latestState?.email || '',
-    getContributionProfile: () => ({
-      nickname: String(inputContributionNickname?.value || '').trim(),
-      qq: String(inputContributionQq?.value || '').trim(),
-    }),
-    getSelectedFlowId: () => (typeof getSelectedFlowId === 'function'
-      ? getSelectedFlowId(latestState)
-      : String(latestState?.activeFlowId || latestState?.flowId || DEFAULT_ACTIVE_FLOW_ID).trim().toLowerCase() || DEFAULT_ACTIVE_FLOW_ID),
-    getSelectedTargetId: (flowId, state = latestState) => (typeof getSelectedTargetIdForState === 'function'
-      ? getSelectedTargetIdForState(state, flowId)
-      : normalizeTargetIdForFlow(flowId, state?.targetId || '', getDefaultTargetIdForFlow(flowId))),
-    isModeSwitchBlocked: isContributionModeSwitchBlocked,
-    openConfirmModal,
-    openExternalUrl,
-    persistCurrentSettingsForAction,
-    showToast,
-    startContributionAutoRun: () => startAutoRunFromCurrentSettings(),
-    updateAccountRunHistorySettingsUI,
-    updateConfigMenuControls,
-    updatePanelModeUI,
-    updateStatusDisplay,
-  },
-  runtime: {
-    sendMessage: (message) => chrome.runtime.sendMessage(message),
-  },
-  constants: {
-    contributionOauthUrl: `${String(contributionContentService?.portalUrl || 'https://flowpilot.qlhazycoder.top').replace(/\/+$/, '')}/oauth/`,
-    contributionPortalUrl: String(contributionContentService?.portalUrl || 'https://flowpilot.qlhazycoder.top').replace(/\/+$/, ''),
-    contributionUploadUrl: `${String(contributionContentService?.portalUrl || 'https://flowpilot.qlhazycoder.top').replace(/\/+$/, '')}/upload`,
-  },
-});
-const baseRenderAccountContribution = accountContributionManager?.render
-  || (() => { });
-const renderContributionMode = () => {
-  baseRenderAccountContribution();
-  renderContributionUpdateHint();
-  updateSignupMethodUI({ notify: true });
-};
-const bindAccountContributionEvents = accountContributionManager?.bindEvents
-  || (() => { });
-bindAccountContributionEvents();
 renderStepsList();
 
 async function exportSettingsFile() {
@@ -14538,21 +14125,12 @@ btnRepoHome?.addEventListener('click', () => {
   openRepositoryHomePage();
 });
 
-btnCloudflareTempEmailUsageGuide?.addEventListener('click', () => {
-  openCloudflareTempEmailUsageGuidePage();
-});
-
 btnCloudflareTempEmailGithub?.addEventListener('click', () => {
   openCloudflareTempEmailRepositoryPage();
 });
 
 extensionUpdateStatus?.addEventListener('click', () => {
   openReleaseListPage();
-});
-
-btnDismissContributionUpdateHint?.addEventListener('click', (event) => {
-  event.stopPropagation();
-  dismissContributionUpdateHint();
 });
 
 configMenu?.addEventListener('click', (event) => {
@@ -14604,11 +14182,6 @@ async function startAutoRunFromCurrentSettings() {
     : getRunCountValue();
   registerPendingAutoRunStartRunCount(requestedTotalRuns);
 
-  // 站点内容刷新只影响提示展示，不应阻塞自动流程启动。
-  refreshContributionContentHint().catch((error) => {
-    console.warn('Failed to refresh contribution content hint before auto run:', error);
-  });
-
   if (typeof persistCurrentSettingsForAction === 'function') {
     await persistCurrentSettingsForAction();
   }
@@ -14632,7 +14205,6 @@ async function startAutoRunFromCurrentSettings() {
       plusModeEnabled: typeof inputPlusModeEnabled !== 'undefined' && inputPlusModeEnabled
         ? Boolean(inputPlusModeEnabled.checked)
         : Boolean(latestState?.plusModeEnabled),
-      accountContributionEnabled: Boolean(latestState?.accountContributionEnabled),
     };
     return registry.validateAutoRunStart({
       activeFlowId: validationState.activeFlowId,
@@ -14665,8 +14237,6 @@ async function startAutoRunFromCurrentSettings() {
   }
   let mode = 'restart';
   const autoRunSkipFailures = inputAutoSkipFailures.checked;
-  const contributionNickname = String(inputContributionNickname?.value || '').trim();
-  const contributionQq = String(inputContributionQq?.value || '').trim();
   const fallbackThreadIntervalMinutes = normalizeAutoRunThreadIntervalMinutes(
     inputAutoSkipFailuresThreadIntervalMinutes.value
   );
@@ -14718,10 +14288,6 @@ async function startAutoRunFromCurrentSettings() {
       activeFlowId,
       targetId,
       autoRunSkipFailures,
-      accountContributionEnabled: Boolean(latestState?.accountContributionEnabled),
-      contributionAdapterId: latestState?.contributionAdapterId || '',
-      contributionNickname,
-      contributionQq,
       mode,
     },
   });
@@ -15307,7 +14873,6 @@ selectPanelMode.addEventListener('change', async () => {
     if (
       typeof selectPlusAccountAccessStrategy !== 'undefined'
       && selectPlusAccountAccessStrategy
-      && !latestState?.accountContributionEnabled
     ) {
       const nextPlusStrategy = resolvePlusAccountAccessStrategyForTarget(
         selectPlusAccountAccessStrategy.value
@@ -17058,7 +16623,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           applyOperationDelayState(message.payload);
         }
         updateAccountRunHistorySettingsUI();
-        renderContributionMode();
+        updateSignupMethodUI({ notify: true });
         void syncPlusManualConfirmationDialog();
         break;
       }
@@ -17081,7 +16646,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (
         message.payload.password !== undefined
         || message.payload.customPassword !== undefined
-        || message.payload.accountContributionEnabled !== undefined
       ) {
         syncPasswordField(latestState || {});
       }
@@ -17743,7 +17307,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         });
       }
       updateAccountRunHistorySettingsUI();
-      renderContributionMode();
+      updateSignupMethodUI({ notify: true });
       void syncPlusManualConfirmationDialog();
       break;
     }
@@ -17866,13 +17430,6 @@ document.addEventListener('keydown', (event) => {
   closeEditableListPickers();
 });
 
-window.addEventListener('resize', () => {
-  positionContributionUpdateHint();
-});
-
-document.addEventListener('scroll', () => {
-  positionContributionUpdateHint();
-}, true);
 
 // ============================================================
 // Init
@@ -17927,12 +17484,7 @@ Promise.allSettled([
     updatePanelModeUI();
     updateButtonStates();
     updateStatusDisplay(latestState);
-    return refreshContributionContentHint()
-      .catch((error) => {
-        console.warn('Failed to refresh contribution content hint during initialization:', error);
-        return null;
-      })
-      .then(() => maybeShowNewUserGuidePrompt());
+    return maybeShowNewUserGuidePrompt();
   }).catch((err) => {
     console.error('Failed to initialize sidepanel state:', err);
   });

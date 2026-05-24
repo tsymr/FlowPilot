@@ -102,7 +102,6 @@ test('account run history helper upgrades old records, keeps stopped items and s
       attemptRun: 3,
     },
     plusModeEnabled: false,
-    accountContributionEnabled: false,
   });
 
   const appended = await helpers.appendAccountRunRecord('node:fetch-login-code:failed', null, '步骤 8：认证页进入了手机号页面，当前不是 OAuth 同意页，无法继续自动授权。');
@@ -213,7 +212,6 @@ test('account run history helper accepts phone-only records without forcing emai
     source: 'manual',
     autoRunContext: null,
     plusModeEnabled: false,
-    accountContributionEnabled: false,
   });
 
   const normalized = helpers.normalizeAccountRunHistoryRecord({
@@ -411,38 +409,6 @@ test('account run history keeps phone as primary identity when phone signup late
   assert.equal(storedHistory[0].finalStatus, 'success');
 });
 
-test('account run history records preserve Plus and contribution mode flags', () => {
-  const source = fs.readFileSync('background/account-run-history.js', 'utf8');
-  const globalScope = {};
-  const api = new Function('self', `${source}; return self.MultiPageBackgroundAccountRunHistory;`)(globalScope);
-
-  const helpers = api.createAccountRunHistoryHelpers({
-    chrome: { storage: { local: { get: async () => ({}), set: async () => {} } } },
-    getState: async () => ({}),
-    normalizeAccountRunHistoryHelperBaseUrl: (value) => String(value || '').trim(),
-  });
-
-  const record = helpers.buildAccountRunHistoryRecord({
-    email: 'plus@example.com',
-    password: 'secret',
-    plusModeEnabled: true,
-    accountContributionEnabled: true,
-  }, 'success');
-
-  assert.equal(record.plusModeEnabled, true);
-  assert.equal(record.accountContributionEnabled, true);
-
-  const normalized = helpers.normalizeAccountRunHistoryRecord({
-    email: 'plus@example.com',
-    password: 'secret',
-    finalStatus: 'success',
-    plusModeEnabled: true,
-    accountContributionEnabled: true,
-  });
-
-  assert.equal(normalized.plusModeEnabled, true);
-  assert.equal(normalized.accountContributionEnabled, true);
-});
 
 test('account run history helper clears persisted records and syncs full snapshot payload to local helper', async () => {
   const source = fs.readFileSync('background/account-run-history.js', 'utf8');

@@ -39,16 +39,6 @@ test('flow registry exposes canonical flow and target metadata', () => {
     ['row-plus-mode', 'row-plus-account-access-strategy', 'row-plus-payment-method']
   );
   assert.equal(flowRegistry.getPublicationTargetDefinition('kiro', 'kiro-rs')?.label, 'kiro.rs');
-  assert.equal(flowRegistry.getFlowCapabilities('openai').supportsAccountContribution, true);
-  assert.equal(flowRegistry.getFlowCapabilities('kiro').supportsAccountContribution, true);
-  assert.deepEqual(
-    flowRegistry.getFlowCapabilities('openai').contributionAdapterIds,
-    ['openai-oauth', 'openai-codex-file', 'openai-sub2api-file']
-  );
-  assert.deepEqual(
-    flowRegistry.getFlowCapabilities('kiro').contributionAdapterIds,
-    ['kiro-builder-id']
-  );
 });
 
 test('settings schema normalizes view input into canonical nested namespaces', () => {

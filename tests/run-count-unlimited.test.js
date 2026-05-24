@@ -122,8 +122,6 @@ function syncScheduledCountdownTicker() {}
 function updateStopButtonState() {}
 function getStepStatuses() { return {}; }
 function updateConfigMenuControls() {}
-function renderContributionMode() {}
-
 ${bundle}
 
 return {
@@ -211,8 +209,6 @@ function syncScheduledCountdownTicker() {}
 function updateStopButtonState() {}
 function getStepStatuses() { return {}; }
 function updateConfigMenuControls() {}
-function renderContributionMode() {}
-
 ${bundle}
 
 return {

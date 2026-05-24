@@ -61,7 +61,7 @@ function getErrorMessage(error) {
 }
 async function getState() {
   events.push({ type: 'getState' });
-  return { nodeStatuses: {}, accountContributionEnabled: true };
+  return { nodeStatuses: {} };
 }
 function getLastNodeIdForState() {
   return lastNodeId;

@@ -389,7 +389,6 @@
       MAIL_2925_VERIFICATION_INTERVAL_MS = 15000,
       MAIL_2925_VERIFICATION_MAX_ATTEMPTS = 15,
       isTabAlive = async () => false,
-      maybeSubmitFlowContribution = async () => null,
       KIRO_REGISTER_INJECT_FILES = null,
       KIRO_DESKTOP_AUTHORIZE_INJECT_FILES = null,
       pollCloudflareTempEmailVerificationCode = null,

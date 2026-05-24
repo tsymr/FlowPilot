@@ -84,7 +84,7 @@ test('collectSettingsPayload persists icloud target mailbox settings', () => {
   const bundle = extractFunction('collectSettingsPayload');
 
   const api = new Function(`
-let latestState = { accountContributionEnabled: false };
+let latestState = {};
 const window = {};
 const PLUS_ACCOUNT_ACCESS_STRATEGY_OAUTH = 'oauth';
 const PLUS_ACCOUNT_ACCESS_STRATEGY_SUB2API_CODEX_SESSION = 'sub2api_codex_session';
@@ -393,8 +393,6 @@ const selectIcloudTargetMailboxType = { value: 'icloud-inbox' };
 const selectIcloudForwardMailProvider = { value: 'qq' };
 const checkboxAutoDeleteIcloud = { checked: false };
 const inputAccountRunHistoryHelperBaseUrl = { value: '' };
-const inputContributionNickname = { value: '' };
-const inputContributionQq = { value: '' };
 const inputMail2925UseAccountPool = { checked: false };
 const inputInbucketHost = { value: '' };
 const inputInbucketMailbox = { value: '' };

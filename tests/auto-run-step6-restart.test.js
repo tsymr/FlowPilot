@@ -559,7 +559,6 @@ test('auto-run restarts from confirm-oauth step after transient step10 token_exc
       stepStatuses: { 3: 'completed' },
       stepsVersion: 'ultra2.0',
       visibleStep: 10,
-      accountContributionEnabled: false,
     },
   });
 
