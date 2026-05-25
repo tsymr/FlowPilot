@@ -4515,6 +4515,19 @@ async function importSettingsBundle(configBundle) {
   const importedSettingsSource = typeof settingsImporter?.importSettings === 'function'
     ? settingsImporter.importSettings(configBundle.settings)
     : configBundle.settings;
+
+  // 将 schema 规范化过程中被丢弃的扁平持久化 key 补回，避免邮箱账户池、接码配置等被默认值覆盖
+  if (typeof settingsImporter?.importSettings === 'function' && configBundle.settings) {
+    const persistedKeys = Array.isArray(typeof PERSISTED_SETTING_KEYS !== 'undefined' ? PERSISTED_SETTING_KEYS : null)
+      ? PERSISTED_SETTING_KEYS
+      : [];
+    for (const key of persistedKeys) {
+      if (Object.prototype.hasOwnProperty.call(configBundle.settings, key) && !Object.prototype.hasOwnProperty.call(importedSettingsSource, key)) {
+        importedSettingsSource[key] = configBundle.settings[key];
+      }
+    }
+  }
+
   const importedSettings = buildPersistentSettingsPayload(importedSettingsSource, {
     fillDefaults: true,
     requireKnownKeys: true,
