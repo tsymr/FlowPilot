@@ -1,3 +1,4 @@
+import argparse
 import email
 import html
 import imaplib
@@ -11,13 +12,13 @@ from datetime import datetime, timezone
 from email.header import decode_header
 from email.utils import parseaddr, parsedate_to_datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlparse, urlencode
 from urllib.request import Request, urlopen
 
-
-HOST = "127.0.0.1"
-PORT = 17373
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 17373
 LIVE_TOKEN_URL = "https://login.live.com/oauth20_token.srf"
 ENTRA_COMMON_TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 ENTRA_CONSUMERS_TOKEN_URL = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
@@ -66,6 +67,42 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 ACCOUNT_LOG_PATH = os.path.join(BASE_DIR, "data", "account-run-history.txt")
 ACCOUNT_RECORDS_SNAPSHOT_PATH = os.path.join(BASE_DIR, "data", "account-run-history.json")
 ACCOUNT_RECORDS_LOCK = threading.Lock()
+
+
+def normalize_server_port(raw_value, default=DEFAULT_PORT):
+    candidate = default if raw_value is None or str(raw_value).strip() == "" else raw_value
+    try:
+        port = int(str(candidate).strip())
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid helper port: {raw_value}") from exc
+    if port < 1 or port > 65535:
+        raise ValueError(f"Helper port out of range: {port}")
+    return port
+
+
+def resolve_server_config(argv=None, environ=None):
+    runtime_environ = environ if environ is not None else os.environ
+    parser = argparse.ArgumentParser(description="Start the local Hotmail helper service.")
+    parser.add_argument(
+        "--host",
+        default=str(runtime_environ.get("HOTMAIL_HELPER_HOST") or DEFAULT_HOST).strip() or DEFAULT_HOST,
+        help="Server host. Defaults to HOTMAIL_HELPER_HOST or 127.0.0.1.",
+    )
+    parser.add_argument(
+        "--port",
+        default=runtime_environ.get("HOTMAIL_HELPER_PORT"),
+        help="Server port. Defaults to HOTMAIL_HELPER_PORT or 17373.",
+    )
+    args = parser.parse_args(argv)
+    host = str(args.host or DEFAULT_HOST).strip() or DEFAULT_HOST
+    try:
+        port = normalize_server_port(args.port, default=DEFAULT_PORT)
+    except ValueError as exc:
+        parser.error(str(exc))
+    return {
+        "host": host,
+        "port": port,
+    }
 
 
 def json_response(handler, status, payload):
@@ -186,6 +223,22 @@ def append_account_log(email_addr, password, status, recorded_at="", reason=""):
     return ACCOUNT_LOG_PATH
 
 
+def save_local_cpa_json(file_path, content, directory_path=""):
+    target_path = Path(str(file_path or "").strip()).expanduser()
+    if not str(target_path):
+        raise RuntimeError("Missing filePath")
+
+    if not target_path.is_absolute():
+        raise RuntimeError("filePath must be absolute")
+
+    if directory_path:
+        Path(str(directory_path).strip()).expanduser().mkdir(parents=True, exist_ok=True)
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_path.write_text(str(content or ""), encoding="utf-8")
+    return str(target_path)
+
+
 def normalize_account_run_snapshot_record(record):
     if not isinstance(record, dict):
         return None
@@ -193,7 +246,7 @@ def normalize_account_run_snapshot_record(record):
     email_addr = str(record.get("email") or "").strip()
     password = str(record.get("password") or "").strip()
     final_status = str(record.get("finalStatus") or "").strip().lower()
-    if not email_addr or not password or final_status not in {"success", "failed", "stopped"}:
+    if not email_addr or not password or final_status not in {"success", "failed", "stopped", "running"}:
         return None
 
     finished_at = str(record.get("finishedAt") or "").strip() or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -238,15 +291,21 @@ def summarize_account_run_snapshot(records):
     summary = {
         "total": 0,
         "success": 0,
+        "running": 0,
         "failed": 0,
+        "stopped": 0,
         "retryTotal": 0,
     }
     for item in records:
         summary["total"] += 1
         if item.get("finalStatus") == "success":
             summary["success"] += 1
+        elif item.get("finalStatus") == "running":
+            summary["running"] += 1
         elif item.get("finalStatus") == "failed":
             summary["failed"] += 1
+        elif item.get("finalStatus") == "stopped":
+            summary["stopped"] += 1
         summary["retryTotal"] += max(0, int(item.get("retryCount") or 0))
     return summary
 
@@ -802,8 +861,9 @@ class HotmailHelperHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             payload = read_json_payload(self)
+            request_path = urlparse(self.path).path
 
-            if self.path == "/sync-account-run-records":
+            if request_path == "/sync-account-run-records":
                 file_path = sync_account_run_records(payload)
                 json_response(self, 200, {
                     "ok": True,
@@ -811,13 +871,25 @@ class HotmailHelperHandler(BaseHTTPRequestHandler):
                 })
                 return
 
-            if self.path == "/append-account-log":
+            if request_path == "/append-account-log":
                 file_path = append_account_log(
                     payload.get("email"),
                     payload.get("password"),
                     payload.get("status"),
                     payload.get("recordedAt"),
                     payload.get("reason"),
+                )
+                json_response(self, 200, {
+                    "ok": True,
+                    "filePath": file_path,
+                })
+                return
+
+            if request_path == "/save-auth-json":
+                file_path = save_local_cpa_json(
+                    payload.get("filePath"),
+                    payload.get("content"),
+                    payload.get("directoryPath"),
                 )
                 json_response(self, 200, {
                     "ok": True,
@@ -834,7 +906,7 @@ class HotmailHelperHandler(BaseHTTPRequestHandler):
             top = max(1, min(int(payload.get("top") or FETCH_LIMIT_DEFAULT), 30))
             mailboxes = payload.get("mailboxes") if isinstance(payload.get("mailboxes"), list) else [payload.get("mailbox") or "INBOX"]
 
-            if self.path == "/messages":
+            if request_path == "/messages":
                 result = collect_messages(email_addr, client_id, refresh_token, mailboxes, top)
                 json_response(self, 200, {
                     "ok": True,
@@ -846,7 +918,7 @@ class HotmailHelperHandler(BaseHTTPRequestHandler):
                 })
                 return
 
-            if self.path == "/code":
+            if request_path == "/code":
                 result = collect_messages(email_addr, client_id, refresh_token, mailboxes, top)
                 selected = select_latest_code(
                     result["messages"],
@@ -874,9 +946,12 @@ class HotmailHelperHandler(BaseHTTPRequestHandler):
             json_response(self, 500, {"ok": False, "error": str(exc)})
 
 
-def main():
-    server = ThreadingHTTPServer((HOST, PORT), HotmailHelperHandler)
-    print(f"Hotmail helper listening on http://{HOST}:{PORT}", flush=True)
+def main(argv=None):
+    config = resolve_server_config(argv)
+    host = config["host"]
+    port = config["port"]
+    server = ThreadingHTTPServer((host, port), HotmailHelperHandler)
+    print(f"Hotmail helper listening on http://{host}:{port}", flush=True)
     print(f"Account log file: {ACCOUNT_LOG_PATH}", flush=True)
     print(f"Account snapshot file: {ACCOUNT_RECORDS_SNAPSHOT_PATH}", flush=True)
     try:

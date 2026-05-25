@@ -304,14 +304,19 @@ const LAST_STEP_ID = Math.max(
 const FINAL_OAUTH_CHAIN_START_STEP = 7;
 
 const {
+  buildEmailApiDetailUrl,
+  buildEmailApiListUrl,
+  extractCodeFromEmailBody,
   extractVerificationCodeFromMessage,
   filterHotmailAccountsByUsage,
   getLatestHotmailMessage,
   getHotmailMailApiRequestConfig,
   getHotmailVerificationPollConfig,
   getHotmailVerificationRequestTimestamp,
-  normalizeHotmailServiceMode,
+  isOpenAiVerificationEmail,
+  normalizeHotmailEmailApiKey,
   normalizeHotmailMailApiMessages,
+  normalizeHotmailServiceMode,
   pickHotmailAccountForRun,
   pickVerificationMessage,
   pickVerificationMessageWithFallback,
@@ -663,6 +668,9 @@ const DEFAULT_HOTMAIL_REMOTE_BASE_URL = '';
 const DEFAULT_HOTMAIL_LOCAL_BASE_URL = 'http://127.0.0.1:17373';
 const DEFAULT_ACCOUNT_RUN_HISTORY_HELPER_BASE_URL = DEFAULT_HOTMAIL_LOCAL_BASE_URL;
 const HOTMAIL_LOCAL_HELPER_TIMEOUT_MS = 45000;
+const OUTLOOK_ALIAS_DEFAULT_MAX_PER_ACCOUNT = 5;
+const OUTLOOK_ALIAS_MAX_PER_ACCOUNT_LIMIT = 50;
+const OUTLOOK_SUBSCRIPTION_USED_KEYWORD = 'ChatGPT Plus Subscription';
 const DEFAULT_LUCKMAIL_PROJECT_CODE = 'openai';
 const DEFAULT_HERO_SMS_BASE_URL = 'https://hero-sms.com/stubs/handler_api.php';
 const HERO_SMS_SERVICE_CODE = 'dr';
@@ -1263,6 +1271,10 @@ const PERSISTED_SETTING_DEFAULTS = {
   hotmailServiceMode: HOTMAIL_SERVICE_MODE_LOCAL,
   hotmailRemoteBaseUrl: DEFAULT_HOTMAIL_REMOTE_BASE_URL,
   hotmailLocalBaseUrl: DEFAULT_HOTMAIL_LOCAL_BASE_URL,
+  hotmailEmailApiKey: '',
+  hotmailAliasEnabled: false,
+  outlookAliasMaxPerAccount: OUTLOOK_ALIAS_DEFAULT_MAX_PER_ACCOUNT,
+  hotmailAliasUsage: {},
   luckmailApiKey: '',
   luckmailBaseUrl: DEFAULT_LUCKMAIL_BASE_URL,
   luckmailEmailType: DEFAULT_LUCKMAIL_EMAIL_TYPE,
@@ -2792,7 +2804,380 @@ function getHotmailServiceSettings(state = {}) {
     mode: normalizeHotmailServiceMode(state.hotmailServiceMode),
     remoteBaseUrl: normalizeHotmailRemoteBaseUrl(state.hotmailRemoteBaseUrl),
     localBaseUrl: normalizeHotmailLocalBaseUrl(state.hotmailLocalBaseUrl),
+    emailApiKey: normalizeHotmailEmailApiKey(state.hotmailEmailApiKey),
   };
+}
+
+function normalizeOutlookAliasMaxPerAccount(value, fallback = OUTLOOK_ALIAS_DEFAULT_MAX_PER_ACCOUNT) {
+  const rawValue = String(value ?? '').trim();
+  const fallbackNumber = Number(fallback);
+  const normalizedFallback = Number.isFinite(fallbackNumber)
+    ? Math.min(OUTLOOK_ALIAS_MAX_PER_ACCOUNT_LIMIT, Math.max(1, Math.floor(fallbackNumber)))
+    : OUTLOOK_ALIAS_DEFAULT_MAX_PER_ACCOUNT;
+  if (!rawValue) {
+    return normalizedFallback;
+  }
+  const numeric = Number(rawValue);
+  if (!Number.isFinite(numeric)) {
+    return normalizedFallback;
+  }
+  return Math.min(OUTLOOK_ALIAS_MAX_PER_ACCOUNT_LIMIT, Math.max(1, Math.floor(numeric)));
+}
+
+function normalizeEmailAddressForMatch(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isHotmailAliasEnabled(state = {}) {
+  return Boolean(state?.hotmailAliasEnabled);
+}
+
+function getHotmailAliasUsageKey(account = {}) {
+  return String(account?.id || account?.email || '').trim();
+}
+
+function normalizeHotmailAliasUsageEntry(entry = {}, fallbackEmail = '') {
+  const email = String(entry?.email || fallbackEmail || '').trim();
+  if (!email) {
+    return null;
+  }
+  return {
+    email,
+    used: Boolean(entry?.used),
+    lastCheckedAt: Number.isFinite(Number(entry?.lastCheckedAt)) ? Number(entry.lastCheckedAt) : 0,
+    reason: String(entry?.reason || '').trim(),
+  };
+}
+
+function normalizeHotmailAliasUsage(value = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  const normalized = {};
+  for (const [accountKey, rawBucket] of Object.entries(value)) {
+    const key = String(accountKey || '').trim();
+    if (!key) {
+      continue;
+    }
+    const aliasesSource = rawBucket?.aliases && typeof rawBucket.aliases === 'object' && !Array.isArray(rawBucket.aliases)
+      ? rawBucket.aliases
+      : rawBucket;
+    const aliases = {};
+    for (const [aliasKey, rawEntry] of Object.entries(aliasesSource || {})) {
+      const entry = normalizeHotmailAliasUsageEntry(rawEntry, rawEntry?.email || aliasKey);
+      if (!entry) {
+        continue;
+      }
+      aliases[normalizeEmailAddressForMatch(entry.email)] = entry;
+    }
+    normalized[key] = {
+      aliases,
+      updatedAt: Number.isFinite(Number(rawBucket?.updatedAt)) ? Number(rawBucket.updatedAt) : 0,
+    };
+  }
+  return normalized;
+}
+
+function getHotmailAliasEntriesForAccount(usage = {}, account = {}) {
+  const key = getHotmailAliasUsageKey(account);
+  if (!key) {
+    return [];
+  }
+  const normalized = normalizeHotmailAliasUsage(usage);
+  return Object.values(normalized[key]?.aliases || {});
+}
+
+function parseEmailAddressParts(email = '') {
+  const normalized = String(email || '').trim();
+  const atIndex = normalized.lastIndexOf('@');
+  if (atIndex <= 0 || atIndex >= normalized.length - 1) {
+    return null;
+  }
+  return {
+    local: normalized.slice(0, atIndex),
+    domain: normalized.slice(atIndex + 1),
+  };
+}
+
+function isOutlookPlusAliasForAccount(aliasEmail = '', account = {}) {
+  const aliasParts = parseEmailAddressParts(aliasEmail);
+  const baseParts = parseEmailAddressParts(account?.email);
+  if (!aliasParts || !baseParts) {
+    return false;
+  }
+  const aliasLocal = aliasParts.local.toLowerCase();
+  const baseLocal = baseParts.local.toLowerCase();
+  return aliasParts.domain.toLowerCase() === baseParts.domain.toLowerCase()
+    && aliasLocal.startsWith(`${baseLocal}+`)
+    && aliasLocal.length > baseLocal.length + 1;
+}
+
+function buildOutlookPlusAliasEmail(baseEmail = '', tag = '') {
+  const parts = parseEmailAddressParts(baseEmail);
+  if (!parts) {
+    return '';
+  }
+  const cleanedTag = String(tag || generateRandomSuffix(6))
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '')
+    .replace(/^[._-]+|[._-]+$/g, '');
+  if (!cleanedTag) {
+    return '';
+  }
+  return `${parts.local}+${cleanedTag}@${parts.domain}`;
+}
+
+function buildOutlookPayPalAliasEmail(baseEmail = '', index = 1) {
+  const parts = parseEmailAddressParts(baseEmail);
+  const numericIndex = Math.max(1, Math.floor(Number(index) || 1));
+  if (!parts) {
+    return '';
+  }
+  return `${parts.local}+PayPal${numericIndex}@${parts.domain}`;
+}
+
+function getOutlookPayPalAliasIndex(aliasEmail = '', account = {}) {
+  const aliasParts = parseEmailAddressParts(aliasEmail);
+  const baseParts = parseEmailAddressParts(account?.email);
+  if (!aliasParts || !baseParts || aliasParts.domain.toLowerCase() !== baseParts.domain.toLowerCase()) {
+    return null;
+  }
+  const prefix = `${baseParts.local}+paypal`.toLowerCase();
+  const local = aliasParts.local.toLowerCase();
+  if (!local.startsWith(prefix)) {
+    return null;
+  }
+  const numeric = Number(local.slice(prefix.length));
+  return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+function isHotmailAliasUsed(usage = {}, account = {}, aliasEmail = '') {
+  const key = getHotmailAliasUsageKey(account);
+  const emailKey = normalizeEmailAddressForMatch(aliasEmail);
+  if (!key || !emailKey) {
+    return false;
+  }
+  const normalized = normalizeHotmailAliasUsage(usage);
+  return Boolean(normalized[key]?.aliases?.[emailKey]?.used);
+}
+
+function countHotmailUsedAliases(usage = {}, account = {}) {
+  return getHotmailAliasEntriesForAccount(usage, account)
+    .filter((entry) => Boolean(entry?.used)).length;
+}
+
+function isHotmailAliasCapacityExhausted(account = {}, state = {}) {
+  const maxAliases = normalizeOutlookAliasMaxPerAccount(state?.outlookAliasMaxPerAccount);
+  return countHotmailUsedAliases(state?.hotmailAliasUsage, account) >= maxAliases;
+}
+
+function messageContainsSubscriptionKeyword(message = {}, keyword = OUTLOOK_SUBSCRIPTION_USED_KEYWORD) {
+  const needle = String(keyword || '').trim().toLowerCase();
+  if (!needle) {
+    return false;
+  }
+  const body = typeof message?.body === 'string'
+    ? message.body
+    : (message?.body?.content || '');
+  const combined = [
+    message?.subject,
+    message?.bodyPreview,
+    message?.preview,
+    message?.text,
+    body,
+  ].map((item) => String(item || '').toLowerCase()).join(' ');
+  return combined.includes(needle);
+}
+
+function getMessageRecipientAddresses(message = {}) {
+  const recipients = message?.recipients;
+  const fromRecipientObject = Array.isArray(recipients?.all)
+    ? recipients.all
+    : [
+        ...(Array.isArray(recipients?.to) ? recipients.to : []),
+        ...(Array.isArray(recipients?.cc) ? recipients.cc : []),
+        ...(Array.isArray(recipients?.bcc) ? recipients.bcc : []),
+      ];
+  const fallback = [
+    message?.toRecipients,
+    message?.ToRecipients,
+    message?.to,
+    message?.recipient,
+    message?.recipients,
+  ].flatMap((item) => (Array.isArray(item) ? item : (item ? [item] : [])));
+  const source = fromRecipientObject.length ? fromRecipientObject : fallback;
+  const addresses = [];
+  const seen = new Set();
+  for (const item of source) {
+    const raw = typeof item === 'string'
+      ? item
+      : (
+          item?.emailAddress?.address
+          || item?.EmailAddress?.Address
+          || item?.address
+          || item?.email
+          || ''
+        );
+    const address = normalizeEmailAddressForMatch(raw);
+    if (!address || seen.has(address)) {
+      continue;
+    }
+    seen.add(address);
+    addresses.push(address);
+  }
+  return addresses;
+}
+
+function findSubscriptionMessageForAlias(messages = [], aliasEmail = '') {
+  const aliasKey = normalizeEmailAddressForMatch(aliasEmail);
+  let sawKeywordWithoutRecipients = false;
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (!messageContainsSubscriptionKeyword(message)) {
+      continue;
+    }
+    const recipients = getMessageRecipientAddresses(message);
+    if (!recipients.length) {
+      sawKeywordWithoutRecipients = true;
+      continue;
+    }
+    if (recipients.includes(aliasKey)) {
+      return {
+        matched: true,
+        missingRecipients: false,
+        message,
+      };
+    }
+  }
+  return {
+    matched: false,
+    missingRecipients: sawKeywordWithoutRecipients,
+    message: null,
+  };
+}
+
+async function setHotmailAliasUsageEntry(account = {}, aliasEmail = '', updates = {}) {
+  const accountKey = getHotmailAliasUsageKey(account);
+  const aliasKey = normalizeEmailAddressForMatch(aliasEmail);
+  if (!accountKey || !aliasKey) {
+    return null;
+  }
+  const state = await getState();
+  const usage = normalizeHotmailAliasUsage(state.hotmailAliasUsage);
+  const bucket = usage[accountKey] || { aliases: {}, updatedAt: 0 };
+  const previous = bucket.aliases[aliasKey] || {};
+  const nextEntry = normalizeHotmailAliasUsageEntry({
+    ...previous,
+    email: String(aliasEmail || previous.email || '').trim(),
+    ...updates,
+  }, aliasEmail);
+  if (!nextEntry) {
+    return null;
+  }
+  const nextUsage = {
+    ...usage,
+    [accountKey]: {
+      aliases: {
+        ...(bucket.aliases || {}),
+        [aliasKey]: nextEntry,
+      },
+      updatedAt: Date.now(),
+    },
+  };
+  await setPersistentSettings({ hotmailAliasUsage: nextUsage });
+  await setState({ hotmailAliasUsage: nextUsage });
+  broadcastDataUpdate({ hotmailAliasUsage: nextUsage });
+  return nextEntry;
+}
+
+async function checkOutlookAliasSubscriptionUsage(account = {}, aliasEmail = '') {
+  try {
+    const result = await fetchHotmailMailboxMessages(account, ['INBOX']);
+    const messages = Array.isArray(result?.messages) ? result.messages : [];
+    const match = findSubscriptionMessageForAlias(messages, aliasEmail);
+    if (match.matched) {
+      await setHotmailAliasUsageEntry(account, aliasEmail, {
+        used: true,
+        lastCheckedAt: Date.now(),
+        reason: 'subscription_keyword',
+      });
+      await addLog(`Hotmail/Outlook：别名 ${aliasEmail} 已存在 Plus 订阅邮件，已标记为已用。`, 'warn');
+      return { used: true, checked: true, missingRecipients: false };
+    }
+    if (match.missingRecipients) {
+      await addLog(`Hotmail/Outlook：检测到 Plus 订阅邮件，但邮件数据没有收件人字段，未将别名 ${aliasEmail} 标记为已用。`, 'warn');
+    }
+    return { used: false, checked: true, missingRecipients: Boolean(match.missingRecipients) };
+  } catch (error) {
+    await addLog(`Hotmail/Outlook：预检查别名 ${aliasEmail} 收件箱失败：${error?.message || error}，将继续尝试使用该别名。`, 'warn');
+    return { used: false, checked: false, error };
+  }
+}
+
+async function ensureOutlookAliasForHotmailAccount(account = {}, options = {}) {
+  const state = await getState();
+  if (!Boolean(state?.hotmailAliasEnabled)) {
+    const baseEmail = String(account?.email || '').trim();
+    await setEmailState(baseEmail || null, { source: 'hotmail-base-email' });
+    return baseEmail;
+  }
+  const currentEmail = String(state.email || '').trim();
+  if (
+    currentEmail
+    && isOutlookPlusAliasForAccount(currentEmail, account)
+    && (options?.allowUsedCurrent || !isHotmailAliasUsed(state.hotmailAliasUsage, account, currentEmail))
+  ) {
+    return currentEmail;
+  }
+
+  const maxAliases = normalizeOutlookAliasMaxPerAccount(state.outlookAliasMaxPerAccount);
+  let latestUsage = normalizeHotmailAliasUsage(state.hotmailAliasUsage);
+  const reusableAliases = getHotmailAliasEntriesForAccount(latestUsage, account)
+    .filter((entry) => !entry.used)
+    .map((entry) => entry.email)
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftIndex = getOutlookPayPalAliasIndex(left, account);
+      const rightIndex = getOutlookPayPalAliasIndex(right, account);
+      if (leftIndex !== null || rightIndex !== null) {
+        return (leftIndex ?? Number.MAX_SAFE_INTEGER) - (rightIndex ?? Number.MAX_SAFE_INTEGER);
+      }
+      return String(left || '').localeCompare(String(right || ''));
+    });
+  const generatedCandidates = [];
+  const existingAliases = getHotmailAliasEntriesForAccount(latestUsage, account)
+    .map((entry) => normalizeEmailAddressForMatch(entry.email))
+    .filter(Boolean);
+  const existingAliasSet = new Set(existingAliases);
+  for (let index = 1; index <= maxAliases; index += 1) {
+    if (existingAliasSet.size + generatedCandidates.length >= maxAliases) {
+      break;
+    }
+    const candidate = buildOutlookPayPalAliasEmail(account.email, index);
+    const candidateKey = normalizeEmailAddressForMatch(candidate);
+    if (!candidate || existingAliasSet.has(candidateKey) || generatedCandidates.some((item) => normalizeEmailAddressForMatch(item) === candidateKey)) {
+      continue;
+    }
+    generatedCandidates.push(candidate);
+  }
+
+  for (const aliasEmail of [...reusableAliases, ...generatedCandidates]) {
+    const precheck = await checkOutlookAliasSubscriptionUsage(account, aliasEmail);
+    if (precheck.used) {
+      latestUsage = normalizeHotmailAliasUsage((await getState()).hotmailAliasUsage);
+      continue;
+    }
+    await setHotmailAliasUsageEntry(account, aliasEmail, {
+      used: false,
+      lastCheckedAt: Date.now(),
+      reason: precheck.checked ? 'allocated' : 'allocated_precheck_failed',
+    });
+    await setEmailState(aliasEmail, { source: 'generated:outlook-alias' });
+    await addLog(`Hotmail/Outlook：已为基邮箱 ${account.email} 分配别名 ${aliasEmail}。`, 'info');
+    return aliasEmail;
+  }
+
+  throw new Error(`Hotmail/Outlook：基邮箱 ${account.email} 的别名已用完（上限 ${maxAliases}），无法分配新的别名。`);
 }
 
 function getCloudflareTempEmailConfig(state = {}) {
@@ -3327,6 +3712,17 @@ function normalizePersistentSettingValue(key, value) {
       return normalizeHotmailRemoteBaseUrl(value);
     case 'hotmailLocalBaseUrl':
       return normalizeHotmailLocalBaseUrl(value);
+    case 'hotmailEmailApiKey':
+      return normalizeHotmailEmailApiKey(value);
+    case 'hotmailAliasEnabled':
+      return Boolean(value);
+    case 'outlookAliasMaxPerAccount':
+      return normalizeOutlookAliasMaxPerAccount(
+        value,
+        PERSISTED_SETTING_DEFAULTS.outlookAliasMaxPerAccount
+      );
+    case 'hotmailAliasUsage':
+      return normalizeHotmailAliasUsage(value);
     case 'luckmailApiKey':
       return String(value || '');
     case 'luckmailBaseUrl':
@@ -4936,14 +5332,14 @@ function isAuthorizedHotmailRunAccount(candidate) {
   return Boolean(candidate)
     && candidate.status === 'authorized'
     && !candidate.used
-    && Boolean(candidate.refreshToken);
+    && Boolean(candidate.email);
 }
 
 function isPendingHotmailVerificationCandidate(candidate) {
   return Boolean(candidate)
     && candidate.status === 'pending'
     && !candidate.used
-    && Boolean(candidate.refreshToken);
+    && Boolean(candidate.email);
 }
 
 function compareHotmailAccountAllocationPriority(left, right) {
@@ -5019,44 +5415,92 @@ async function requestHotmailRemoteMailbox(account, mailbox = 'INBOX') {
   if (!account?.email) {
     throw new Error('Hotmail 账号缺少邮箱地址。');
   }
-  if (!account?.clientId) {
-    throw new Error(`Hotmail 账号 ${account.email || account.id} 缺少客户端 ID。`);
-  }
-  if (!account?.refreshToken) {
-    throw new Error(`Hotmail 账号 ${account.email || account.id} 缺少刷新令牌（refresh token）。`);
-  }
 
+  const serviceSettings = getHotmailServiceSettings(await getState());
+  const apiKey = serviceSettings.emailApiKey;
   const { timeoutMs } = getHotmailMailApiRequestConfig();
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
 
   try {
-    const result = await fetchMicrosoftMailboxMessages({
-      clientId: account.clientId,
-      refreshToken: account.refreshToken,
-      mailbox,
-      top: 10,
+    const listUrl = buildEmailApiListUrl(serviceSettings.remoteBaseUrl, account.email);
+    const listResponse = await fetch(listUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
       signal: controller.signal,
     });
+
+    if (!listResponse.ok) {
+      const errorText = await listResponse.text().catch(() => '');
+      throw new Error(`邮件 API 请求失败 (${listResponse.status}): ${errorText}`);
+    }
+
+    const listData = await listResponse.json();
+    const emails = Array.isArray(listData?.emails) ? listData.emails : [];
+
+    const openAiEmail = emails.find((emailData) => isOpenAiVerificationEmail(emailData));
+    if (!openAiEmail) {
+      return {
+        mailbox,
+        payload: {
+          source: 'email-api',
+          transport: 'email-api',
+          tokenStrategy: 'bearer',
+        },
+        messages: [],
+        nextRefreshToken: '',
+      };
+    }
+
+    const messageId = openAiEmail.message_id || openAiEmail.id || '';
+    let bodyPlain = '';
+    if (messageId) {
+      const detailUrl = buildEmailApiDetailUrl(serviceSettings.remoteBaseUrl, account.email, messageId);
+      const detailResponse = await fetch(detailUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        signal: controller.signal,
+      });
+
+      if (detailResponse.ok) {
+        const detailData = await detailResponse.json();
+        bodyPlain = detailData.body_plain || '';
+      }
+    }
+
+    const message = {
+      id: messageId,
+      subject: openAiEmail.subject || '',
+      from: { emailAddress: { address: openAiEmail.from_email || '' } },
+      body: bodyPlain,
+      receivedDateTime: openAiEmail.date || openAiEmail.received_at || '',
+      mailbox,
+    };
 
     return {
       mailbox,
       payload: {
-        source: 'microsoft-api',
-        transport: result.transport,
-        tokenStrategy: result.tokenStrategy,
+        source: 'email-api',
+        transport: 'email-api',
+        tokenStrategy: 'bearer',
       },
-      messages: normalizeHotmailMailApiMessages(result.messages).map((message) => ({
-        ...message,
-        mailbox: message?.mailbox || mailbox,
+      messages: normalizeHotmailMailApiMessages([message]).map((msg) => ({
+        ...msg,
+        mailbox: msg?.mailbox || mailbox,
       })),
-      nextRefreshToken: result.nextRefreshToken,
+      nextRefreshToken: '',
     };
   } catch (err) {
     if (err?.name === 'AbortError') {
-      throw new Error(`Hotmail API 对接请求超时（>${Math.round(timeoutMs / 1000)} 秒）：${mailbox}`);
+      throw new Error(`Hotmail 邮件 API 请求超时（>${Math.round(timeoutMs / 1000)} 秒）：${mailbox}`);
     }
-    throw new Error(`Hotmail API 对接请求失败：${err.message}`);
+    throw new Error(`Hotmail 邮件 API 请求失败：${err.message}`);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -5116,11 +5560,8 @@ async function requestHotmailLocalMessages(account, mailboxes = HOTMAIL_MAILBOXE
   if (!account?.email) {
     throw new Error('Hotmail 账号缺少邮箱地址。');
   }
-  if (!account?.clientId) {
-    throw new Error(`Hotmail 账号 ${account.email || account.id} 缺少客户端 ID。`);
-  }
-  if (!account?.refreshToken) {
-    throw new Error(`Hotmail 账号 ${account.email || account.id} 缺少刷新令牌（refresh token）。`);
+  if (!account?.clientId || !account?.refreshToken) {
+    return fetchHotmailMailboxMessagesFromRemoteService(account, mailboxes);
   }
 
   const serviceSettings = getHotmailServiceSettings(await getState());
@@ -5201,11 +5642,16 @@ async function requestHotmailLocalCode(account, pollPayload = {}) {
   if (!account?.email) {
     throw new Error('Hotmail 账号缺少邮箱地址。');
   }
-  if (!account?.clientId) {
-    throw new Error(`Hotmail 账号 ${account.email || account.id} 缺少客户端 ID。`);
-  }
-  if (!account?.refreshToken) {
-    throw new Error(`Hotmail 账号 ${account.email || account.id} 缺少刷新令牌（refresh token）。`);
+  if (!account?.clientId || !account?.refreshToken) {
+    const result = await fetchHotmailMailboxMessagesFromRemoteService(account, [pollPayload?.mailbox || 'INBOX']);
+    const latestMessage = getLatestHotmailMessage(result.messages);
+    const latestCode = latestMessage ? extractVerificationCodeFromMessage(latestMessage) : null;
+    return {
+      account: result.account,
+      code: latestCode || '',
+      message: latestMessage,
+      usedTimeFallback: false,
+    };
   }
 
   const serviceSettings = getHotmailServiceSettings(await getState());
@@ -5324,6 +5770,9 @@ async function pollHotmailVerificationCodeViaLocalHelper(step, account, pollPayl
 async function fetchHotmailMailboxMessages(account, mailboxes = HOTMAIL_MAILBOXES) {
   const serviceSettings = getHotmailServiceSettings(await getState());
   if (serviceSettings.mode === HOTMAIL_SERVICE_MODE_LOCAL) {
+    if (!account?.clientId || !account?.refreshToken) {
+      return fetchHotmailMailboxMessagesFromRemoteService(account, mailboxes);
+    }
     return requestHotmailLocalMessages(account, mailboxes);
   }
   return fetchHotmailMailboxMessagesFromRemoteService(account, mailboxes);
@@ -5471,7 +5920,7 @@ async function pollHotmailVerificationCode(step, state, pollPayload = {}) {
   await addLog(`步骤 ${step}：当前使用 Hotmail 账号 ${account.email} 轮询收件箱。`, 'info');
 
   const serviceSettings = getHotmailServiceSettings(state);
-  if (serviceSettings.mode === HOTMAIL_SERVICE_MODE_LOCAL) {
+  if (serviceSettings.mode === HOTMAIL_SERVICE_MODE_LOCAL && account?.clientId && account?.refreshToken) {
     return pollHotmailVerificationCodeViaLocalHelper(step, account, pollPayload);
   }
 

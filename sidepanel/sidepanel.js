@@ -321,10 +321,13 @@ const rowHotmailRemoteBaseUrl = document.getElementById('row-hotmail-remote-base
 const inputHotmailRemoteBaseUrl = document.getElementById('input-hotmail-remote-base-url');
 const rowHotmailLocalBaseUrl = document.getElementById('row-hotmail-local-base-url');
 const inputHotmailLocalBaseUrl = document.getElementById('input-hotmail-local-base-url');
+const rowHotmailAliasEnabled = document.getElementById('row-hotmail-alias-enabled');
+const inputHotmailAliasEnabled = document.getElementById('input-hotmail-alias-enabled');
+const rowOutlookAliasMax = document.getElementById('row-outlook-alias-max');
+const inputOutlookAliasMaxPerAccount = document.getElementById('input-outlook-alias-max-per-account');
+const rowHotmailEmailApiKey = document.getElementById('row-hotmail-email-api-key');
+const inputHotmailEmailApiKey = document.getElementById('input-hotmail-email-api-key');
 const inputHotmailEmail = document.getElementById('input-hotmail-email');
-const inputHotmailClientId = document.getElementById('input-hotmail-client-id');
-const inputHotmailPassword = document.getElementById('input-hotmail-password');
-const inputHotmailRefreshToken = document.getElementById('input-hotmail-refresh-token');
 const inputHotmailImport = document.getElementById('input-hotmail-import');
 const inputHotmailSearch = document.getElementById('input-hotmail-search');
 const selectHotmailFilter = document.getElementById('select-hotmail-filter');
@@ -1542,7 +1545,7 @@ const PRIVACY_MASKED_INPUT_IDS = Object.freeze([
   'input-hotmail-remote-base-url',
   'input-hotmail-local-base-url',
   'input-hotmail-email',
-  'input-hotmail-client-id',
+  'input-hotmail-email-api-key',
   'input-mail2925-email',
   'input-luckmail-base-url',
   'input-luckmail-domain',
@@ -4828,6 +4831,13 @@ function collectSettingsPayload() {
     hotmailServiceMode: getSelectedHotmailServiceMode(),
     hotmailRemoteBaseUrl: inputHotmailRemoteBaseUrl.value.trim(),
     hotmailLocalBaseUrl: inputHotmailLocalBaseUrl.value.trim(),
+    hotmailEmailApiKey: (inputHotmailEmailApiKey?.value || '').trim(),
+    hotmailAliasEnabled: typeof inputHotmailAliasEnabled !== 'undefined' && inputHotmailAliasEnabled
+      ? normalizeHotmailAliasEnabledValue(inputHotmailAliasEnabled.checked)
+      : false,
+    outlookAliasMaxPerAccount: typeof inputOutlookAliasMaxPerAccount !== 'undefined' && inputOutlookAliasMaxPerAccount
+      ? normalizeOutlookAliasMaxPerAccount(inputOutlookAliasMaxPerAccount.value)
+      : 5,
     luckmailApiKey: inputLuckmailApiKey.value,
     luckmailBaseUrl: normalizeLuckmailBaseUrl(inputLuckmailBaseUrl.value),
     luckmailEmailType: normalizeLuckmailEmailType(selectLuckmailEmailType.value),
@@ -4934,6 +4944,22 @@ function normalizeHotmailServiceMode(value = '') {
   return String(value || '').trim().toLowerCase() === HOTMAIL_SERVICE_MODE_REMOTE
     ? HOTMAIL_SERVICE_MODE_REMOTE
     : HOTMAIL_SERVICE_MODE_LOCAL;
+}
+
+function normalizeOutlookAliasMaxPerAccount(value) {
+  const rawValue = String(value ?? '').trim();
+  if (!rawValue) {
+    return 5;
+  }
+  const numeric = Number(rawValue);
+  if (!Number.isFinite(numeric)) {
+    return 5;
+  }
+  return Math.min(50, Math.max(1, Math.floor(numeric)));
+}
+
+function normalizeHotmailAliasEnabledValue(value) {
+  return Boolean(value);
 }
 
 function normalizeAccountRunHistoryHelperBaseUrlValue(value = '') {
@@ -11071,6 +11097,17 @@ function applySettingsState(state) {
   setHotmailServiceMode(state?.hotmailServiceMode);
   inputHotmailRemoteBaseUrl.value = state?.hotmailRemoteBaseUrl || '';
   inputHotmailLocalBaseUrl.value = state?.hotmailLocalBaseUrl || '';
+  if (inputHotmailEmailApiKey) {
+    inputHotmailEmailApiKey.value = state?.hotmailEmailApiKey || '';
+  }
+  if (typeof inputHotmailAliasEnabled !== 'undefined' && inputHotmailAliasEnabled) {
+    inputHotmailAliasEnabled.checked = normalizeHotmailAliasEnabledValue(state?.hotmailAliasEnabled);
+  }
+  if (typeof inputOutlookAliasMaxPerAccount !== 'undefined' && inputOutlookAliasMaxPerAccount) {
+    inputOutlookAliasMaxPerAccount.value = String(
+      normalizeOutlookAliasMaxPerAccount(state?.outlookAliasMaxPerAccount)
+    );
+  }
   inputLuckmailApiKey.value = state?.luckmailApiKey || '';
   inputLuckmailBaseUrl.value = normalizeLuckmailBaseUrl(state?.luckmailBaseUrl);
   selectLuckmailEmailType.value = normalizeLuckmailEmailType(state?.luckmailEmailType);
@@ -12345,13 +12382,27 @@ function updateMailProviderUI() {
   if (rowHotmailRemoteBaseUrl) {
     rowHotmailRemoteBaseUrl.style.display = useHotmail && hotmailServiceMode === HOTMAIL_SERVICE_MODE_REMOTE ? '' : 'none';
   }
+  if (rowHotmailEmailApiKey) {
+    rowHotmailEmailApiKey.style.display = useHotmail && hotmailServiceMode === HOTMAIL_SERVICE_MODE_REMOTE ? '' : 'none';
+  }
   if (rowHotmailLocalBaseUrl) {
     rowHotmailLocalBaseUrl.style.display = useHotmail && hotmailServiceMode === HOTMAIL_SERVICE_MODE_LOCAL ? '' : 'none';
+  }
+  const hotmailAliasEnabled = Boolean(
+    typeof inputHotmailAliasEnabled !== 'undefined' && inputHotmailAliasEnabled
+      ? inputHotmailAliasEnabled.checked
+      : latestState?.hotmailAliasEnabled
+  );
+  if (typeof rowHotmailAliasEnabled !== 'undefined' && rowHotmailAliasEnabled) {
+    rowHotmailAliasEnabled.style.display = useHotmail ? '' : 'none';
+  }
+  if (typeof rowOutlookAliasMax !== 'undefined' && rowOutlookAliasMax) {
+    rowOutlookAliasMax.style.display = useHotmail && hotmailAliasEnabled ? '' : 'none';
   }
   btnFetchEmail.hidden = useHotmail || useLuckmail || useCustomEmail || useCustomEmailPool;
   inputEmail.readOnly = useHotmail || useLuckmail;
   inputEmail.placeholder = useHotmail
-    ? '由 Hotmail 账号池自动分配'
+    ? '由 微软邮箱账户池 自动分配'
     : (useLuckmail
       ? '步骤 3 自动购买 LuckMail 邮箱并回填'
       : (useGeneratedAlias ? '步骤 3 自动生成 2925 邮箱并回填' : uiCopy.placeholder));
@@ -13365,10 +13416,29 @@ async function copyTextToClipboard(text) {
   if (!value) {
     throw new Error('没有可复制的内容。');
   }
-  if (!navigator.clipboard?.writeText) {
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return;
+    }
+  } catch (_) {
+    // Fall back to execCommand when document loses focus
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  try {
+    document.execCommand('copy');
+  } catch (_) {
+    document.body.removeChild(textarea);
     throw new Error('当前环境不支持剪贴板复制。');
   }
-  await navigator.clipboard.writeText(value);
+  document.body.removeChild(textarea);
 }
 
 const hotmailManager = window.SidepanelHotmailManager?.createHotmailManager({
@@ -13388,11 +13458,8 @@ const hotmailManager = window.SidepanelHotmailManager?.createHotmailManager({
     hotmailAccountsList,
     hotmailListShell,
     inputEmail,
-    inputHotmailClientId,
     inputHotmailEmail,
     inputHotmailImport,
-    inputHotmailPassword,
-    inputHotmailRefreshToken,
     inputHotmailSearch,
     selectHotmailFilter,
     selectMailProvider,
@@ -14100,6 +14167,23 @@ hotmailServiceModeButtons.forEach((button) => {
     markSettingsDirty(true);
     saveSettings({ silent: true }).catch(() => { });
   });
+});
+
+inputOutlookAliasMaxPerAccount?.addEventListener('input', () => {
+  markSettingsDirty(true);
+  scheduleSettingsAutoSave();
+});
+inputOutlookAliasMaxPerAccount?.addEventListener('blur', () => {
+  inputOutlookAliasMaxPerAccount.value = String(
+    normalizeOutlookAliasMaxPerAccount(inputOutlookAliasMaxPerAccount.value)
+  );
+  saveSettings({ silent: true }).catch(() => { });
+});
+
+inputHotmailAliasEnabled?.addEventListener('change', () => {
+  updateMailProviderUI();
+  markSettingsDirty(true);
+  saveSettings({ silent: true }).catch(() => { });
 });
 
 btnSaveSettings.addEventListener('click', async () => {
@@ -16950,6 +17034,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         if (selectMailProvider.value === 'hotmail-api') {
           inputEmail.value = getCurrentHotmailEmail();
         }
+      }
+      if (message.payload.hotmailAliasEnabled !== undefined && inputHotmailAliasEnabled) {
+        inputHotmailAliasEnabled.checked = Boolean(message.payload.hotmailAliasEnabled);
+        updateMailProviderUI();
+      }
+      if (message.payload.outlookAliasMaxPerAccount !== undefined && inputOutlookAliasMaxPerAccount) {
+        inputOutlookAliasMaxPerAccount.value = String(
+          normalizeOutlookAliasMaxPerAccount(message.payload.outlookAliasMaxPerAccount)
+        );
       }
       if (message.payload.currentPayPalAccountId !== undefined || message.payload.paypalAccounts !== undefined) {
         renderPayPalAccounts();

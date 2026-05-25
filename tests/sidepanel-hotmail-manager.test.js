@@ -254,9 +254,6 @@ test('hotmail manager hides form after save succeeds', async () => {
     },
   };
   const inputHotmailEmail = { value: '', focus() {} };
-  const inputHotmailClientId = { value: '' };
-  const inputHotmailPassword = { value: '' };
-  const inputHotmailRefreshToken = { value: '' };
   const toastMessages = [];
 
   const manager = api.createHotmailManager({
@@ -276,11 +273,10 @@ test('hotmail manager hides form after save succeeds', async () => {
       hotmailFormShell: formShell,
       hotmailListShell: { classList: { toggle() {} } },
       inputEmail: { value: '' },
-      inputHotmailClientId,
       inputHotmailEmail,
       inputHotmailImport: { value: '' },
-      inputHotmailPassword,
-      inputHotmailRefreshToken,
+      inputHotmailSearch: { value: '', addEventListener() {} },
+      selectHotmailFilter: { value: 'all', addEventListener() {} },
       selectMailProvider: { value: 'hotmail-api' },
     },
     helpers: {
@@ -298,8 +294,6 @@ test('hotmail manager hides form after save succeeds', async () => {
         account: {
           id: 'acc-1',
           email: 'demo@hotmail.com',
-          clientId: 'client-id',
-          refreshToken: 'refresh-token',
         },
       }),
     },
@@ -314,17 +308,11 @@ test('hotmail manager hides form after save succeeds', async () => {
   manager.bindHotmailEvents();
   handlers.toggleForm();
   inputHotmailEmail.value = 'demo@hotmail.com';
-  inputHotmailClientId.value = 'client-id';
-  inputHotmailPassword.value = 'secret';
-  inputHotmailRefreshToken.value = 'refresh-token';
 
   await handlers.add();
 
   assert.equal(formShell.hidden, true);
   assert.equal(toggleFormButton.textContent, '添加账号');
   assert.equal(inputHotmailEmail.value, '');
-  assert.equal(inputHotmailClientId.value, '');
-  assert.equal(inputHotmailPassword.value, '');
-  assert.equal(inputHotmailRefreshToken.value, '');
   assert.match(toastMessages.at(-1) || '', /已保存 Hotmail 账号/);
 });

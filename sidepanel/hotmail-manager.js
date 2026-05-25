@@ -208,9 +208,6 @@
 
     function clearHotmailForm() {
       dom.inputHotmailEmail.value = '';
-      dom.inputHotmailClientId.value = '';
-      dom.inputHotmailPassword.value = '';
-      dom.inputHotmailRefreshToken.value = '';
     }
 
     const formController = typeof createAccountPoolFormController === 'function'
@@ -268,8 +265,6 @@
             <span class="hotmail-status-chip ${helpers.escapeHtml(getHotmailStatusClass(account))}">${helpers.escapeHtml(getHotmailStatusLabel(account))}</span>
           </div>
           <div class="hotmail-account-meta">
-            <span>客户端 ID：${helpers.escapeHtml(account.clientId ? `${account.clientId.slice(0, 10)}...` : '未填写')}</span>
-            <span>刷新令牌：${account.refreshToken ? '已保存' : '未保存'}</span>
             <span>分配状态: ${helpers.escapeHtml(getHotmailAvailabilityLabel(account))}</span>
             <span>上次校验: ${helpers.escapeHtml(formatDateTime(account.lastAuthAt))}</span>
             <span>上次使用: ${helpers.escapeHtml(formatDateTime(account.lastUsedAt))}</span>
@@ -345,18 +340,8 @@
       if (actionInFlight) return;
 
       const email = dom.inputHotmailEmail.value.trim();
-      const clientId = dom.inputHotmailClientId.value.trim();
-      const refreshToken = dom.inputHotmailRefreshToken.value.trim();
       if (!email) {
-        helpers.showToast('请先填写 Hotmail 邮箱。', 'warn');
-        return;
-      }
-      if (!clientId) {
-        helpers.showToast('请先填写微软应用客户端 ID。', 'warn');
-        return;
-      }
-      if (!refreshToken) {
-        helpers.showToast('请先填写刷新令牌（refresh token）。', 'warn');
+        helpers.showToast('请先填写邮箱地址。', 'warn');
         return;
       }
 
@@ -369,9 +354,6 @@
           source: 'sidepanel',
           payload: {
             email,
-            clientId,
-            password: dom.inputHotmailPassword.value,
-            refreshToken,
           },
         });
 
@@ -404,7 +386,7 @@
 
       const parsedAccounts = hotmailUtils.parseHotmailImportText(rawText);
       if (!parsedAccounts.length) {
-        helpers.showToast('没有解析到有效账号，请检查格式是否为 账号----密码----ID----Token。', 'error');
+        helpers.showToast('没有解析到有效邮箱地址，请检查每行是否为一个完整的邮箱地址。', 'error');
         return;
       }
 

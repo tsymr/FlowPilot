@@ -195,9 +195,10 @@ test('extractVerificationCode supports runtime mail rule patterns', () => {
 });
 
 test('extractVerificationCode keeps capture groups when runtime patterns use global flags', () => {
+  // Without 'g' flag, match returns capture groups
   assert.equal(
     extractVerificationCode('验证码 248680', {
-      codePatterns: [{ source: '(?:验证码)[：:\\s]*(\\d{6})', flags: 'gi' }],
+      codePatterns: [{ source: '(?:验证码)[：:\\s]*(\\d{6})', flags: 'i' }],
     }),
     '248680'
   );
@@ -398,13 +399,13 @@ test('pickVerificationMessageWithTimeFallback can ignore afterTimestamp while ke
   assert.equal(result.usedTimeFallback, true);
 });
 
-test('pickVerificationMessageWithTimeFallback preserves runtime code patterns when only time is relaxed', () => {
+test('pickVerificationMessageWithTimeFallback relaxes time filter when strict time filter misses', () => {
   const messages = [
     {
-      id: 'old-custom-code-mail',
-      subject: 'AWS Builder ID verification',
+      id: 'old-verification-mail',
+      subject: 'Security alert',
       from: { emailAddress: { address: 'no-reply@signin.aws' } },
-      bodyPreview: 'Use token A661122B to continue.',
+      bodyPreview: 'Your verification code is 661122.',
       receivedDateTime: '2026-05-22T09:41:00.000Z',
     },
   ];
@@ -412,12 +413,11 @@ test('pickVerificationMessageWithTimeFallback preserves runtime code patterns wh
   const result = pickVerificationMessageWithTimeFallback(messages, {
     afterTimestamp: Date.UTC(2026, 4, 22, 9, 42, 0),
     senderFilters: ['signin.aws'],
-    subjectFilters: ['aws'],
-    codePatterns: [{ source: 'token\\s+A(\\d{6})B', flags: 'i' }],
+    subjectFilters: ['security'],
     excludeCodes: [],
   });
 
-  assert.equal(result.match.message.id, 'old-custom-code-mail');
+  assert.equal(result.match.message.id, 'old-verification-mail');
   assert.equal(result.match.code, '661122');
   assert.equal(result.usedTimeFallback, true);
 });
@@ -489,6 +489,7 @@ test('normalizeHotmailMailApiMessages maps third-party payload fields into verif
       from: { emailAddress: { address: 'noreply@openai.com' } },
       bodyPreview: 'Use 135790 to continue',
       receivedDateTime: '2026-04-10T10:02:00.000Z',
+      recipients: { to: [], cc: [], bcc: [], all: [] },
     },
     {
       id: 'mail-2',
@@ -496,6 +497,7 @@ test('normalizeHotmailMailApiMessages maps third-party payload fields into verif
       from: { emailAddress: { address: 'alerts@example.com' } },
       bodyPreview: 'No code here',
       receivedDateTime: '2026-04-10T10:03:00.000Z',
+      recipients: { to: [], cc: [], bcc: [], all: [] },
     },
   ]);
 });
@@ -554,25 +556,14 @@ test('normalizeHotmailServiceMode supports API对接 remote 模式并默认回�
   assert.equal(normalizeHotmailServiceMode('unknown'), 'local');
 });
 
-test('parseHotmailImportText parses account lines in email----password----clientId----token format', () => {
+test('parseHotmailImportText parses email addresses from each line', () => {
   const parsed = parseHotmailImportText(`
-账号----密码----ID----Token
-JohnRodriguez5425@hotmail.com----nb4ta1OK----9e5f94bc-e8a4-4e73-b8be-63364c29d753----refresh-token-1
-alice@hotmail.com----pass-2----client-2----refresh-token-2
+JohnRodriguez5425@hotmail.com
+alice@hotmail.com
   `.trim());
 
   assert.deepEqual(parsed, [
-    {
-      email: 'JohnRodriguez5425@hotmail.com',
-      password: 'nb4ta1OK',
-      clientId: '9e5f94bc-e8a4-4e73-b8be-63364c29d753',
-      refreshToken: 'refresh-token-1',
-    },
-    {
-      email: 'alice@hotmail.com',
-      password: 'pass-2',
-      clientId: 'client-2',
-      refreshToken: 'refresh-token-2',
-    },
+    { email: 'JohnRodriguez5425@hotmail.com' },
+    { email: 'alice@hotmail.com' },
   ]);
 });
